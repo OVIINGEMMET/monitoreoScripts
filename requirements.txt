@@ -1,0 +1,20 @@
+connectFTPSSH/FTPConnect.py
+    - ftplib, tqdm, getopt
+
+connectFTPSSH/SSHConnect.py
+    - paramiko, getopt
+
+createGif/createGif.py
+    - imageio, Pillow, numpy
+
+getImageCamera/getImage.py
+    - pprint, Pillow, clint, requests
+
+watermark/watermark.py
+    - Pillow
+
+
+PARA GENERAR .EXE
+pip install pyinstaller
+Y EJECUTAR
+pyinstaller yourprogram.py
