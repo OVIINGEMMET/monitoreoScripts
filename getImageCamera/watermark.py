@@ -20,7 +20,7 @@ def makecross(sourceImage):
     draw.line((0, sourceImage.size[1], sourceImage.size[0], 0), fill=128)
 
 
-def maketitle (sourceImage, title='Titulo por default', typePos=1, date=''):
+def maketitle (sourceImage, title='Titulo por default', typePos=1, date='', fontSize=12):
     height = sourceImage.size[1]
     weight = sourceImage.size[0]
 
@@ -32,13 +32,13 @@ def maketitle (sourceImage, title='Titulo por default', typePos=1, date=''):
         posText1 = (10, height - 20)
         posText2 = (weight - 150, height - 20)
     else:
-        posText1 = (10, 4)
-        posText2 = (weight - 150, 4)
+        posText1 = (10, 1)
+        posText2 = (weight - (fontSize * 10 + 25), 1)
 
     # make a blank image for the text, initialized to transparent text color
     txt = Image.new('RGBA', sourceImage.size, (255, 255, 255, 0))
     # get a font
-    fnt = ImageFont.truetype(FONT, 12, encoding='utf-8')
+    fnt = ImageFont.truetype(FONT, fontSize, encoding='utf-8')
     d = ImageDraw.Draw(txt)
     format = "%d/%m/%Y %H:%M:%S"
     if date != '':
@@ -56,7 +56,7 @@ def makereactangule (sourceImage, rheight, typePos=1):
     height = sourceImage.size[1]
     rectangle = Image.new('RGBA', (width, rheight))
     draw = ImageDraw.Draw(rectangle)
-    draw.rectangle(((0, 0), (width, rheight)), fill=(0, 0, 0, 120))
+    draw.rectangle(((0, 0), (width, rheight)), fill=(0, 0, 0, 100))
 
     # Position
     if typePos == 1:
@@ -108,6 +108,12 @@ def watermark3(imageSource, title='Volcán', date=''):
     makereactangule(imageSource, 20, typePos=2)
     maketitle(imageSource, title, typePos=3, date=date)
     makelogo(imageSource, FILEFULLPATH + '/sources/logoCircle2.png', sizeLogo=70, typePos=3)
+
+
+def watermark4(imageSource, title='Volcán', date=''):
+    makereactangule(imageSource, 25, typePos=2)
+    maketitle(imageSource, title, typePos=3, date=date, fontSize=17)
+    makelogo(imageSource, FILEFULLPATH + '/sources/ovi-logo-azul.png', sizeLogo=90, typePos=3)
 
 
 # def main():

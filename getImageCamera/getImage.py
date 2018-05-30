@@ -50,6 +50,8 @@ class Camera():
         self.title = params['title']
         # [STRING] IP O URL DEL ORIGEN DE LA IMAGEN A DESCARGAR
         self.url = params['url']
+        # [STRING] URL O SERVICIO PARA SUBIR LA IMAGEN A UN SERVIDOR EXTERNO MEDIANTE PETICION HTTPS POST
+        self.urlUp = params['urlUp']
         # [INT] PERIODO DE TIEMPO PARA VOLVER A HACER LA PETICION DE UNA IMAGEN
         self.timer = params['timer']
         # [BOOL] SI LA CONEXON REQUIERE AUTENTICACION
@@ -140,6 +142,18 @@ class Camera():
                     self.pasteLogo(toPathFilename)
                 # -----------------------------------------------------------------------------
 
+                # CONDICIONAL: SI CONFIGURAMOS UN URLUP SUBIREMOS LA IMAGEN MEDIANTE UN SERVICIO WEB
+                if cen and self.urlUp is not False:
+                    try:
+                        files = {'file': open(toPathFilename, 'rb')}
+                        puts(colored.cyan('     - uploading image...'))
+                        puts(colored.yellow('         [' + self.urlUp + ']'))
+                        response = requests.post(self.urlUp, files=files)
+                        puts(colored.green('     - uploaded image!! ' + str(response.status_code)))
+                    except:
+                        puts(colored.green('     - upload Error!! '))
+                # -----------------------------------------------------------------------------
+
             puts(colored.cyan(' END]'))
             print
         else:
@@ -173,6 +187,16 @@ class Camera():
                 # SI LA DESCARGA SE REALIZA CON EXITO SE EVALUA SI REQUIERE MARCA DE AGUA
                 if cen and self.watermark:
                     self.pasteLogo(toPathFilename, thread=True)
+
+                # CONDICIONAL: SI CONFIGURAMOS UN URLUP SUBIREMOS LA IMAGEN MEDIANTE UN SERVICIO WEB
+                if cen and self.urlUp is not False:
+                    try:
+                        files = {'file': open(toPathFilename, 'rb')}
+                        self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> uploading image...', self.id)
+                        requests.post(self.urlUp, files=files)
+                        self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> uploaded image!!', self.id)
+                    except:
+                        self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> upload Error!!', self.id)
             # -----------------------------------------------------------------------------------
         else:
             self.isWorking = False
@@ -248,7 +272,7 @@ class Camera():
             # ABRIMOS LA IMAGEN YA DESCARGADA EN NUESTRO LOCAL
             base = Image.open(toPath)
             # AGREGAMOS EL TITULO Y LA FECHA DE REGISTRO
-            watermark.watermark3(base, title=self.title, date=self.today)
+            watermark.watermark4(base, title=self.title, date=self.today)
             # REEAMPLAZAMOS LA IMAGEN ORGINAL POR LA IMAGEN CON LOGOS
             base.save(toPath, "JPEG")
             if not thread:
