@@ -33,6 +33,7 @@ class Camera():
         self.filenamePath = ''
         self.watermark = False
         self.GLOBALPATH = '',
+        self.FONT = None,
         self.isWorking = False
         self.date = None
         self.timeout = 5
@@ -73,6 +74,8 @@ class Camera():
         self.watermark = params['watermark']
         # [STRING] PATH O RUTA ABSOLUTA DONDE SE ALMACENARA LA CARPETA DE IMAGENES, EJEMPLO home/user1/imagenes/
         self.GLOBALPATH = params['GLOBALPATH']
+        # [STRING/NULL] PATH O RUTA DE LA FUENTE DE LETRA PARA LOS TITULOS
+        self.FONT = params['FONT']
         # [INT] TIMEPO MAXIMO DE ESPERA PARA SOLICITAR UNA IMAGEN
         self.timeout = params['timeout']
 
@@ -272,7 +275,7 @@ class Camera():
             # ABRIMOS LA IMAGEN YA DESCARGADA EN NUESTRO LOCAL
             base = Image.open(toPath)
             # AGREGAMOS EL TITULO Y LA FECHA DE REGISTRO
-            watermark.watermark4(base, title=self.title, date=self.today)
+            watermark.watermark4(base, title=self.title, date=self.today, font=self.FONT)
             # REEAMPLAZAMOS LA IMAGEN ORGINAL POR LA IMAGEN CON LOGOS
             base.save(toPath, "JPEG")
             if not thread:

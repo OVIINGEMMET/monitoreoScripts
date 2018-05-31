@@ -13,6 +13,7 @@ def main():
     global SWITCH 
     global DATA
     global PATH
+    global FONT
     global CAMERAS
     global storageCamera
     global SECONDS
@@ -21,6 +22,7 @@ def main():
     DATA = mapConfig.init()
     SECONDS = DATA['SECONDS']
     PATH = DATA['ROOTPATH']
+    FONT = DATA['FONT']
     CAMERAS = DATA['CAMERA']
 # -------------------------------
 
@@ -34,6 +36,7 @@ def taskCamera():
             # SETEAMOS PARAMETROS
             cam['id'] = idx
             cam['GLOBALPATH'] = PATH
+            cam['FONT'] = FONT
             a.setParameters(cam)
             # -------------------
             # DECLARAMOS LOS THREADS

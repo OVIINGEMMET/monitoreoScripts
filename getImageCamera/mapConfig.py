@@ -52,6 +52,12 @@ def init():
         elif idx == 1:
             dato = line.split(':=')
             DATA[dato[0]] = float(dato[1].strip())
+        elif idx == 2:
+            dato = line.split(':=')
+            if dato[1].strip().upper() == 'NULL' or dato[1].strip() == '':
+                DATA[dato[0]] = None
+            else:
+                DATA[dato[0]] = dato[1].strip()
         else:
             pass
 

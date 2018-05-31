@@ -14,6 +14,7 @@ import os
 def main(argv):
     global DATA
     global PATH
+    global FONT
     global CAMERAS
     global storageCamera
     global SECONDS
@@ -21,6 +22,7 @@ def main(argv):
     DATA = mapConfig.init()
     SECONDS = DATA['SECONDS']
     PATH = DATA['ROOTPATH']
+    FONT = DATA['FONT']
     CAMERAS = DATA['CAMERA']
     storageCamera = Camera()
 
@@ -47,6 +49,7 @@ def taskCamera():
         if not storageCamera.isWorking:
             cam['id'] = idx
             cam['GLOBALPATH'] = PATH
+            cam['FONT'] = FONT
             storageCamera.setParameters(cam)
             storageCamera.getImage()
         else:
