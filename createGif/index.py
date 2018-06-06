@@ -1,15 +1,15 @@
 from createGif import CreateGif
 
 params = {
-    'path': '/home/pc17/Desktop/22/',
-    'gifPath': 'output2.gif',
-    'scale': 0.6,
+    'path': '/home/pc17/Desktop/getImage/05/',
+    'gifPath': 'output3.gif',
+    'scale': 0.8,
     'isDirectory': True,
     'optimize': True,
-    'quality': 50,
-    'frecuency': 200,
-    'duration': 0.07,
-    'time': ['05:19:00', '14:25:00']
+    'quality': 60,
+    'frecuency': 30,
+    'duration': 0.25,
+    'time': ['10:00:00', '12:00:00']
 }
 
 gif = CreateGif()

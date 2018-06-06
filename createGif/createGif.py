@@ -44,6 +44,7 @@ class CreateGif():
         self.isDirectory = False
         self.temporal = '_temp/'
         self.images = []
+        self.totalImages = 0
         self.time = []
         self.count = 0
         self.timeFrom = None
@@ -112,13 +113,15 @@ class CreateGif():
         if self.isDirectory:
             filenames = sorted(os.listdir(self.path))
             for filename in filenames:
+                # print(filename)
                 if filename.lower().endswith(VALID_EXTENSIONS):
                     # en caso de querer escapar del bucle
                     if not self.exit:
                         self.addImage(filename)
                     else:
                         break
-
+        # print(self.images)
+        self.totalImages = len(self.images)
         # grabamos las lista de imagenes en un archivo de salida con extension .gif
         imageio.mimsave(self.gifPath, self.images, duration=self.duration)
         # removemos la carpeta temporal
