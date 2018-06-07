@@ -1,54 +1,25 @@
-from createGif import CreateGif
+from createGifAll import CreateGif
 # import ftplib
 import datetime
-import paramiko
-
-H = '10.102.131.52'
-U = 'root'
-P = 'rootubinas2016'
-
-local = '/media/pc17/DATOS/project/monitoreoScripts/createGif/'
-remote = '/var/www/html/panelview/img/'
-RESTRICT = [['00:00:00', '07:59:00'], ['17:00:00', '23:59:59']]
+import mapConfig
+import threading
+import time
+import sys
+import os
 
 
-def restrictHour():
-    if RESTRICT is None:
-        return False, []
+def main(argv):
+    global DATA
+    global PATH_ORIGIN_GIF_LOCAL
+    global PATH_DEST_GIF_SERVER
+    global SECONDS_FRECUENCY_CREATE
+    global CAMERAS
 
-    # VARIABLE DE ESCAPE DEL BUCLE
-    centinel = False
-    hourRestrict = []
-    localtime = datetime.datetime.now().time()
-
-    # BUCLE PARA LEER EL ARRAY DE RESTRICCIONES
-    for r in RESTRICT:
-        # DESDE
-        h = r[0].split(':')
-        rtimeFrom = datetime.time(int(h[0]), int(h[1]), int(h[2]))
-        # HASTA
-        h = r[1].split(':')
-        rtimeTo = datetime.time(int(h[0]), int(h[1]), int(h[2]))
-
-        # EVALUAMOS SI LA HORA LOCAL ESTA DENTRO DEL RANGO DE RESTRICCION
-        if rtimeFrom < localtime < rtimeTo:
-            hourRestrict = r
-            centinel = True
-            break
-    return centinel, hourRestrict
-
-
-def copy_file(hostname, port, username, password, src, dst):
-    client = paramiko.SSHClient()
-    client.load_system_host_keys()
-    print (" Connecting to %s \n with username=%s... \n" %(hostname,username))
-    t = paramiko.Transport((hostname, port))
-    t.connect(username=username, password=password)
-    sftp = paramiko.SFTPClient.from_transport(t)
-    print ("Copying file: %s to path: %s" %(src, dst))
-    sftp.put(src, dst)
-    sftp.close()
-    t.close()
+    DATA = mapConfig.init()
+    PATH_ORIGIN_GIF_LOCAL = DATA['PATH_ORIGIN_GIF_LOCAL']
+    PATH_DEST_GIF_SERVER = DATA['PATH_DEST_GIF_SERVER']
+    SECONDS_FRECUENCY_CREATE = DATA['SECONDS_FRECUENCY_CREATE']
+    CAMERAS = DATA['CAMERA']
 
 
 def generateDateRange():
@@ -73,46 +44,34 @@ def createGif(params):
     gif = CreateGif()
     gif.setParams(params)
     gif.createGif()
-    total = gif.totalImages
-    return total
+    del gif
 
 
-TimeFrom, TimeTo = generateDateRange()
-sources = [{
-            'path': '/home/pc17/Desktop/getImage/05/',
-            'gifPath': local + 'sabancaya.gif',
-            'scale': 0.8,
-            'isDirectory': True,
-            'optimize': True,
-            'quality': 60,
-            'frecuency': 30,
-            'duration': 0.25,
-            'time': [TimeFrom, TimeTo],
-            'auxName': 'sabancaya.gif'
-            },{
-            'path': '/home/pc17/Desktop/getImage/05/',
-            'gifPath': local + 'ubinas.gif',
-            'scale': 0.8,
-            'isDirectory': True,
-            'optimize': True,
-            'quality': 60,
-            'frecuency': 30,
-            'duration': 0.25,
-            'time': [TimeFrom, TimeTo],
-            'auxName': 'ubinas.gif'
-            }]
+def worker():
+    print(str(time.ctime()))
+    print('-------------------------------------')
+    taskCreateGif()
+    threading.Timer(SECONDS_FRECUENCY_CREATE, worker).start()
 
 
-for src in sources:
+def taskCreateGif():
+    timeFrom, timeTo = generateDateRange()
+    for idx, cam in enumerate(CAMERAS):
+        if cam['enable']:
+            cam['id'] = idx
+            cam['path'] = PATH_ORIGIN_GIF_LOCAL
+            cam['time'] = [timeFrom, timeTo]
+            cam['PATH_DEST_GIF_SERVER'] = PATH_DEST_GIF_SERVER
 
-    isRestrict, hours = restrictHour()
-
-    if not isRestrict:
-        totalImages = createGif(src)
-
-        if totalImages > 150:
-            copy_file(H, 22, U, P, src['gifPath'], remote + src['auxName'])
+            print('CAMERA: [' + cam['cameraName'] + ']')
+            createGif(cam)
+            print('-------------------------------------')
         else:
-            print 'La cantidad de imagenes es insuficiente [' + str(totalImages) + ']'
-    else:
-        print 'Hora restringida '+ str(hours[0]) + '-' + str(hours[1])
+            print('CAMERA: [' + cam['cameraName'] + '] DISABLE!!')
+    print
+
+
+if __name__ == "__main__":
+    main(sys.argv[1:])
+    worker()
+
