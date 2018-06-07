@@ -69,6 +69,7 @@ class CreateGif():
         self.restrict = None
         self.uploadImage = False
         self.deleteOriginalGif = True
+        self.isPathDate=True
         self.PATH_DEST_GIF_SERVER = ''
 
     def setParams(self, params):
@@ -94,6 +95,7 @@ class CreateGif():
         self.restrict = params['restrict']
         self.uploadImage = params['uploadImage']
         self.deleteOriginalGif = params['deleteOriginalGif']
+        self.isPathDate = params['isPathDate']
         self.PATH_DEST_GIF_SERVER = params['PATH_DEST_GIF_SERVER']
 
         # definimos los rangos de hora permitidos
@@ -107,6 +109,31 @@ class CreateGif():
         if os.path.exists(self.temporal):
             shutil.rmtree(self.temporal)
         os.makedirs(self.temporal)
+
+        # COMPLETAMOS EL PATH DE RECURSOS SI LAS CARPETAS SON TIPO DATE
+        if self.isPathDate:
+            self.pathImagesSource = self.pathImagesSource + self.generateDatePath()
+
+
+    def generateDatePath(self):
+
+        # GENERAMOS LA ESTRUCTURA DE CARPETAS ANIDADAS POR ANIO/MES/DIA/
+        self.today = datetime.datetime.now()
+        today = self.today
+        if int(today.day) < 10:
+            dia = '0' + str(today.day)
+        else:
+            dia = str(today.day)
+
+        if int(today.month) < 10:
+            mes = '0' + str(today.month)
+        else:
+            mes = str(today.month)
+
+        year = today.year
+        return str(year) + '/' + str(mes) + '/' + str(dia) + '/'
+
+
 
     # Genera el tamanio a escala de la imagen en base al dato de entrada 'scale'
     def getResizeParams(self):
@@ -152,6 +179,10 @@ class CreateGif():
 
         # si las imagenes estan dentro de un difrectorio listamos todo el contenido, y filtramos las imagenes permitidas
         if self.isDirectory:
+            if not os.path.exists(self.pathImagesSource):
+                print '- La ruta de recursos "' + self.pathImagesSource + '" no existe'
+                return
+
             filenames = sorted(os.listdir(self.pathImagesSource))
             for filename in filenames:
                 if filename.lower().endswith(VALID_EXTENSIONS):
@@ -187,9 +218,13 @@ class CreateGif():
         year = filename[-18:-16]
         month = filename[-15:-13]
         day = filename[-13:-11]
-        hour = int(filename[-10:-8])
-        minute = int(filename[-8:-6])
-        second = int(filename[-6:-4])
+
+        try:
+            hour = int(filename[-10:-8])
+            minute = int(filename[-8:-6])
+            second = int(filename[-6:-4])
+        except:
+            return False
 
         # obtenemos la hora de la imagen por el nombre del archivo
         fileTime = datetime.time(hour, minute, second)
