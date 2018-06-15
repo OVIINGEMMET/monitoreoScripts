@@ -10,7 +10,7 @@ FILEFULLPATH = os.path.abspath(FILEPATHNAME)
 
 def init():
     print('Loading... config.ini')
-    DATA = {'CAMERA': []}
+    DATA = {'VOLCANO': []}
     isCamera = False
     itemCamera = {}
     f = file(FILEFULLPATH + '/config.ini', 'r')
@@ -19,12 +19,12 @@ def init():
         # print idx, line
         line = line
 
-        if line == '<<CAMERA':
+        if line == '<<VOLCANO':
             itemCamera = {}
             isCamera = True
         elif line == '>>' and isCamera is True:
             isCamera = False
-            DATA['CAMERA'].append(itemCamera)
+            DATA['VOLCANO'].append(itemCamera)
         elif isCamera is True:
             dato = line.split(':=')
             key = dato[0].strip()
@@ -46,13 +46,7 @@ def init():
                 auxDato = value.strip()
 
             itemCamera[key] = auxDato
-        elif idx == 0:
-            dato = line.split(':=')
-            DATA[dato[0]] = dato[1].strip()
-        elif idx == 1:
-            dato = line.split(':=')
-            DATA[dato[0]] = dato[1].strip()
-        elif idx == 2:
+        elif idx >= 0 and idx <= 11:
             dato = line.split(':=')
             DATA[dato[0]] = specialValue(dato[1].strip())
         else:
@@ -69,6 +63,6 @@ def specialValue(value):
     elif value == 'False':
         auxDato = False
     else:
-        auxDato = int(value.strip())
+        auxDato = value.strip()
 
     return auxDato

@@ -25,7 +25,7 @@ import numpy as np
 import shutil
 
 # extensionesde imagen validas
-VALID_EXTENSIONS = ('png', 'jpg')
+VALID_EXTENSIONS = ('png', 'jpg', 'gif')
 
 
 class CreateGif():
@@ -35,13 +35,13 @@ class CreateGif():
         self.oHeight = 0
         self.width = 0
         self.height = 0
-        self.scale = 0.5
-        self.quality = 80
-        self.duration = 0.5
+        self.scale = 1
+        self.quality = 100
+        self.duration = 0.8
         self.path = ''
         self.gifPath = ''
         self.optimize = False
-        self.isDirectory = False
+        self.isDirectory = True
         self.temporal = '_temp/'
         self.images = []
         self.totalImages = 0
@@ -52,6 +52,7 @@ class CreateGif():
         self.exit = False
         self.lapseTime = 0
         self.frecuency = 0.3
+        self.noRequireValid = False
 
     def setParams(self, params):
         self.scale = params['scale']
@@ -94,7 +95,7 @@ class CreateGif():
     # Agrega una imagen de manera manual a la lista de imagenes que conformaran el gif
     def addImage(self, pathImage):
         # Validamos si la imagen esta dentro del rango de tiempo permitido
-        if self.validHour(pathImage):
+        if self.noRequireValid or self.validHour(pathImage):
             image = self.openResizeImage(self.path + pathImage)
             # Verifica si se desea optimizar la imagen
             if self.optimize:
@@ -125,7 +126,8 @@ class CreateGif():
         # grabamos las lista de imagenes en un archivo de salida con extension .gif
         imageio.mimsave(self.gifPath, self.images, duration=self.duration)
         # removemos la carpeta temporal
-        shutil.rmtree(self.temporal)
+        if os.path.exists(self.temporal):
+            shutil.rmtree(self.temporal)
         print 'Tiempo de duracion: ' + str(float(self.count * self.duration)) + ' seg.'
 
     def validHour(self, filename):

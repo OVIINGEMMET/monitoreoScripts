@@ -73,5 +73,9 @@ def taskCreateGif():
 
 if __name__ == "__main__":
     main(sys.argv[1:])
-    worker()
+
+    if SECONDS_FRECUENCY_CREATE is not None:
+        worker()
+    else:
+        taskCreateGif()
 
