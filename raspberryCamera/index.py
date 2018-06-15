@@ -7,6 +7,8 @@ import thread
 import time
 import datetime
 
+SWITCH = True
+
 
 # ----- VARIABLES GLOBALES ------
 def main():
@@ -18,6 +20,7 @@ def main():
     global CAMERAS
     global storageCamera
     global SECONDS
+    global OBJCAMERA
 
     SWITCH = True
     DATA = mapConfig.init()
@@ -26,6 +29,7 @@ def main():
     FONT = DATA['FONT']
     CAMERAS = DATA['CAMERA']
     PATH_LOGO = DATA['PATH_LOGO']
+    OBJCAMERA = []
 
 # -------------------------------
 
@@ -39,6 +43,7 @@ def taskCamera():
             # SETEAMOS PARAMETROS
             cam['id'] = idx
             cam['GLOBALPATH'] = PATH
+            cam['SWITCH'] = True
 
             if cam['type'] == 'camera':
                 cam['FONT'] = FONT
@@ -49,20 +54,21 @@ def taskCamera():
             # a.printParams(cam)
             # -------------------
             # DECLARAMOS LOS THREADS
+            OBJCAMERA.append(a)
             thread.start_new_thread(threadTask, (a,))
             # RETARDAMOS CADA THREAD 1 SEGUNDO PARA EVITAR SOLAPAMIENTO DE HILOS
             time.sleep(1)
 
 
 def threadTask(cam):
-    while SWITCH:
+    # global SWITCH
+    while cam.SWITCH:
         # MEDIMOS EL TIMEPO DE DESCARGA EN SEGUDOS
         timeInit = datetime.datetime.now()
 
         if cam.type == 'camera':
             cam.getImageThread()
         else:
-            print 'TYPE SYNC'
             cam.synchronizeLocal()
         # cam.sendFTP()
         timeEnd = datetime.datetime.now()
@@ -79,10 +85,13 @@ def threadTask(cam):
 
         cam.printColor('waiting '+ str(lapso) + ' seconds...')
 
-        # SI EL TIEMPO DE DESCARGA ES MENOR AL TIEMPO CONFIGURDO EN LA CAMARA
-        # SE INICIA UN RETRASO CON EL TIEMPO FALTANTE
-        # PARA QUE LA PETICION DE CADA IMAGEN SE REALICE EN EL TIEMPO SOLICITADO
-        time.sleep(lapso)
+        if SECONDS is not None:
+            # SI EL TIEMPO DE DESCARGA ES MENOR AL TIEMPO CONFIGURDO EN LA CAMARA
+            # SE INICIA UN RETRASO CON EL TIEMPO FALTANTE
+            # PARA QUE LA PETICION DE CADA IMAGEN SE REALICE EN EL TIEMPO SOLICITADO
+            time.sleep(lapso)
+        else:
+            cam.SWITCH = False
 
 
 if __name__ == "__main__":
@@ -92,4 +101,13 @@ if __name__ == "__main__":
 
     # SE REQUIERE PARA QUE LOS THREADS FUNCIONEN
     while 1:
-        pass
+        # pass
+        cen = False
+        for idx, cam in enumerate(OBJCAMERA):
+            # print cam.cameraName
+            cen = cen or cam.SWITCH
+
+        if cen is True:
+            pass
+        else:
+            exit()

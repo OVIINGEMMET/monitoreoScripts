@@ -50,9 +50,10 @@ class Camera():
 
         self.fontSize = 12
         self.sizeLogo = 100
+        self.SWITCH = True
 
-    def __del__(self):
-        print ("del Camera")
+    # def __del__(self):
+    #     print ("del Camera")
 
     # INICIALIZACION DE VARIABLES
     def setParameters(self, params):
@@ -106,6 +107,7 @@ class Camera():
         # [INT] TIMEPO MAXIMO DE ESPERA PARA SOLICITAR UNA IMAGEN
         self.timeout = params['timeout']
         self.destroyImageOriginal = params['destroyImageOriginal']
+        self.SWITCH = params['SWITCH']
 
     def setSynchronizer(self, params):
         self.type = params['type']
@@ -130,6 +132,7 @@ class Camera():
         # [STRING] URL O SERVICIO PARA SUBIR LA IMAGEN A UN SERVIDOR EXTERNO MEDIANTE PETICION HTTPS POST
         self.urlUp = params['urlUp']
         self.destroyImageOriginal = params['destroyImageOriginal']
+        self.SWITCH = params['SWITCH']
 
     def printParams(self, params):
         pprint(params)
@@ -298,6 +301,7 @@ class Camera():
 
     def synchronizeLocal(self):
         self.date = datetime.datetime.now()
+        self.printColor(str(self.date) + '-> Synchronizer ', self.id)
         # CONTRASTAMOS QUE LA HORA ACTUAL NO SE ENCUENTRE EN EL RANGO DE LAS RESTRICCIONES
         isRestrict, hourRestrict = self.restrictHour()
         if isRestrict:
