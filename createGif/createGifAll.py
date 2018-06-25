@@ -25,6 +25,7 @@ import numpy as np
 import shutil
 import paramiko
 import sys
+import cv2
 
 # extensionesde imagen validas
 VALID_EXTENSIONS = ('png', 'jpg')
@@ -71,6 +72,8 @@ class CreateGif():
         self.deleteOriginalGif = True
         self.isPathDate=True
         self.PATH_DEST_GIF_SERVER = ''
+        self.typeOutFile = ''
+        self.fps = ''
 
     def setParams(self, params):
         self.id = params['id']
@@ -90,13 +93,16 @@ class CreateGif():
         self.quality = int(params['quality'])
         self.frecuency = int(params['frecuency'])
         self.duration = float(params['duration'])
-        self.gifNameBySend = params['gifNameBySend']
-        self.gifPath = params['path'] + params['gifName']
+        self.gifNameBySend = params['gifNameBySend'] + '.' + params['typeOutFile']
+        self.gifPath = params['path'] + params['gifName'] + '.' + params['typeOutFile']
         self.restrict = params['restrict']
         self.uploadImage = params['uploadImage']
         self.deleteOriginalGif = params['deleteOriginalGif']
         self.isPathDate = params['isPathDate']
         self.PATH_DEST_GIF_SERVER = params['PATH_DEST_GIF_SERVER']
+
+        self.typeOutFile = params['typeOutFile']
+        self.fps = float(params['fps'])
 
         # definimos los rangos de hora permitidos
         h = self.time[0].split(':')
@@ -113,7 +119,6 @@ class CreateGif():
         # COMPLETAMOS EL PATH DE RECURSOS SI LAS CARPETAS SON TIPO DATE
         if self.isPathDate:
             self.pathImagesSource = self.pathImagesSource + self.generateDatePath()
-
 
     def generateDatePath(self):
 
@@ -133,8 +138,6 @@ class CreateGif():
         year = today.year
         return str(year) + '/' + str(mes) + '/' + str(dia) + '/'
 
-
-
     # Genera el tamanio a escala de la imagen en base al dato de entrada 'scale'
     def getResizeParams(self):
         newW = int(self.oWidth * self.scale)
@@ -144,11 +147,21 @@ class CreateGif():
 
     # Abre la imagen original y la redimensiona segun el tamaio escalado self.width y self.height
     def openResizeImage(self, pathImage):
-        original_image = Image.open(pathImage)
-        self.oWidth, self.oHeight = original_image.size
-        self.getResizeParams()
-        resized_image = original_image.resize([self.width, self.height], Image.ANTIALIAS)
-        return resized_image
+
+        if self.typeOutFile == 'gif':
+            original_image = Image.open(pathImage)
+            self.oWidth, self.oHeight = original_image.size
+            self.getResizeParams()
+            if self.scale < 1:
+                original_image = original_image.resize([self.width, self.height], Image.ANTIALIAS)
+        else:
+            original_image = cv2.imread(pathImage)
+            self.oWidth, self.oHeight, layers = original_image.shape
+            self.getResizeParams()
+            if self.scale < 1:
+                original_image = cv2.resize(original_image, (int(self.height), int(self.width)))
+
+        return original_image
 
     # Agrega una imagen de manera manual a la lista de imagenes que conformaran el gif
     def addImage(self, pathImage):
@@ -156,7 +169,7 @@ class CreateGif():
         if self.validHour(pathImage):
             image = self.openResizeImage(self.pathImagesSource + pathImage)
             # Verifica si se desea optimizar la imagen
-            if self.optimize:
+            if self.optimize and self.typeOutFile == 'gif':
                 image.save(self.temporal + str(self.count) + '.jpg', optimize=True, quality=self.quality)
                 localImage = imageio.imread(self.temporal + str(self.count) + '.jpg')
             else:
@@ -199,11 +212,38 @@ class CreateGif():
             return
 
         # grabamos las lista de imagenes en un archivo de salida con extension .gif
-        imageio.mimsave(self.gifPath, self.images, duration=self.duration)
+        if self.typeOutFile == 'gif':
+            imageio.mimsave(self.gifPath, self.images, duration=self.duration)
+            print '- Tiempo de duracion del GIF: ' + str(float(self.totalImages * self.duration)) + ' seg. [' + str(self.totalImages) + ' imagenes]'
+
+        elif self.typeOutFile == 'avi':
+            out = cv2.VideoWriter(self.gifPath, cv2.VideoWriter_fourcc(*'DIVX'), self.fps, (self.height, self.width))
+            for i in range(self.totalImages):
+                # writing to a image array
+                out.write(self.images[i])
+            out.release()
+            print '- Tiempo de duracion del VIDEO[avi]: ' + str(float(self.totalImages / self.fps)) + ' seg. [' + str(self.totalImages) + ' imagenes]'
+        elif self.typeOutFile == 'mp4':
+            out = cv2.VideoWriter(self.gifPath, cv2.VideoWriter_fourcc(*'MP4V'), self.fps, (self.height, self.width))
+            for i in range(self.totalImages):
+                # writing to a image array
+                out.write(self.images[i])
+            out.release()
+            print '- Tiempo de duracion del VIDEO[mp4]: ' + str(float(self.totalImages / self.fps)) + ' seg. [' + str(self.totalImages) + ' imagenes]'
+        elif self.typeOutFile == 'ogg':
+            out = cv2.VideoWriter(self.gifPath, cv2.VideoWriter_fourcc(*'THEO'), self.fps, (self.height, self.width))
+            for i in range(self.totalImages):
+                # writing to a image array
+                out.write(self.images[i])
+            out.release()
+            print '- Tiempo de duracion del VIDEO[ogg]: ' + str(float(self.totalImages / self.fps)) + ' seg. [' + str(self.totalImages) + ' imagenes]'
+        else:
+            print '- El typeOutFile no es un valor valido, utilizar solo [gif or avi]'
+            return
+
         # removemos la carpeta temporal
         if os.path.exists(self.temporal):
             shutil.rmtree(self.temporal)
-        print '- Tiempo de duracion del GIF: ' + str(float(self.totalImages * self.duration)) + ' seg. [' + str(self.totalImages) + ' imagenes]'
 
         # UPLOAD IMAGE TO SERVER
         if self.totalImages >= self.minImagesByWork and self.uploadImage:

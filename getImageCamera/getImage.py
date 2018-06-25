@@ -10,6 +10,8 @@ import watermark
 import requests
 from requests.auth import HTTPDigestAuth
 from clint.textui import progress, colored, puts
+import urllib2
+from bs4 import BeautifulSoup
 # from config import *
 
 
@@ -37,6 +39,9 @@ class Camera():
         self.isWorking = False
         self.date = None
         self.timeout = 5
+
+        self.isCrawler = False
+        self.attrImage = 'src'
 
     def __del__(self):
         print ("del Camera")
@@ -78,6 +83,9 @@ class Camera():
         self.FONT = params['FONT']
         # [INT] TIMEPO MAXIMO DE ESPERA PARA SOLICITAR UNA IMAGEN
         self.timeout = params['timeout']
+        # ************
+        self.isCrawler = params['isCrawler']
+        self.attrImage = params['attrImage']
 
     def printParams(self, params):
         pprint(params)
@@ -184,8 +192,12 @@ class Camera():
                 toPathFilename = toPath + str(self.filename)
                 # ------------------------------------------------
 
-                # OBTENEMOS EL ESTADO DE L DESCARGA
-                cen = self.saveImageSimple(toPathFilename, thread=True)
+                # OBTENEMOS EL ESTADO DE LA DESCARGA
+                if self.isCrawler:
+                    cen = self.saveImageCrawler(toPathFilename)
+                else:
+                    cen = self.saveImageSimple(toPathFilename, thread=True)
+
                 self.isWorking = False
                 # SI LA DESCARGA SE REALIZA CON EXITO SE EVALUA SI REQUIERE MARCA DE AGUA
                 if cen and self.watermark:
@@ -366,3 +378,27 @@ class Camera():
             else:
                 puts(colored.red('     - Error saving: el servidor esta desconectado'))
             return False
+
+    def saveImageCrawler(self, toPathFilename):
+        # The selenium module
+        # from selenium import webdriver
+        # from selenium.webdriver.common.keys import Keys
+        # from selenium.webdriver.support.ui import WebDriverWait
+        # from selenium.webdriver.support import expected_conditions as EC
+        # from selenium.webdriver.common.by import By
+        #
+        # print self.url
+        # driver = webdriver.Chrome()  # if you want to use chrome, replace Firefox() with Chrome()
+        # driver.get(self.url)
+        #
+        # WebDriverWait(driver, 50).until(EC.visibility_of_element_located((By.ID, "last-photo")))
+        # src = driver.page_source  # gets the html source of the page
+        #
+        # print src
+        # page = urllib2.urlopen(self.url)
+        page = requests.get(self.url)
+        # soup = BeautifulSoup(page, 'html.parser')
+        soup = BeautifulSoup(page.read(), 'html5lib')
+        img = soup.find('img', {"id": "last-photo"})
+        print img
+        return False

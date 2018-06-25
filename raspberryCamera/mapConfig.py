@@ -8,12 +8,22 @@ FILEPATHNAME = os.path.dirname(sys.argv[0])
 FILEFULLPATH = os.path.abspath(FILEPATHNAME)
 
 
-def init():
-    print('Loading... config.ini')
+def init(configFile=''):
     DATA = {'CAMERA': []}
     isCamera = False
     itemCamera = {}
-    f = file(FILEFULLPATH + '/config.ini', 'r')
+
+    if configFile == '':
+        configFile = 'config.ini'
+
+    print('Loading... ' + configFile)
+
+    try:
+        f = file(FILEFULLPATH + '/' + configFile, 'r')
+    except:
+        print('El archivo de configuracion [' + configFile + '] no existe!!')
+        sys.exit(1)
+
     content = f.read().splitlines()
     for idx, line in enumerate(content):
         # print idx, line

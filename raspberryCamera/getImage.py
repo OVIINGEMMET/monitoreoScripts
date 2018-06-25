@@ -134,6 +134,26 @@ class Camera():
         self.destroyImageOriginal = params['destroyImageOriginal']
         self.SWITCH = params['SWITCH']
 
+    def setSyncronizerWEB(self, params):
+        self.type = params['type']
+        # [STRING] ID DE LA CAMARA
+        self.id = params['id']
+        # [STRING] PATH O RUTA ABSOLUTA DONDE SE ALMACENARA LA CARPETA DE IMAGENES, EJEMPLO home/user1/imagenes/
+        self.GLOBALPATH = params['GLOBALPATH']
+        # [STRING] NOMBRE IDENTIFICADOR DE LA CAMARA
+        self.cameraName = params['cameraName']
+        # [BOOL] HABILITA O DESHABILITA UNA CAMARA
+        self.enable = params['enable']
+        # [INT] PERIODO DE TIEMPO PARA VOLVER A HACER LA PETICION DE UNA IMAGEN
+        self.timer = params['timer']
+        # [ARRAY] RESTRICIONES DE HORA, LOS RANGOS DENTRO DE ESTE ARRAY NO DESCARGARAN IMAGENES
+        # EJEMPLO: [[00:00:00, 04:00:12],[07:51:19, 09:40:41]]
+        self.restrict = params['restrict']
+        # [STRING] URL O SERVICIO PARA SUBIR LA IMAGEN A UN SERVIDOR EXTERNO MEDIANTE PETICION HTTPS POST
+        self.urlUp = params['urlUp']
+        self.directory = params['directory']
+        self.SWITCH = params['SWITCH']
+
     def printParams(self, params):
         pprint(params)
 
@@ -265,8 +285,11 @@ class Camera():
         try:
             files = {'file': open(path + filename, 'rb')}
             self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> uploading image web...', self.id)
-            requests.post(self.urlUp, files=files)
-            self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> uploaded image[' + filename + ']!!', self.id)
+            response = requests.post(self.urlUp, files=files)
+            if response.status_code == 200:
+                self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> uploaded image[' + filename + ']!!', self.id)
+            else:
+                self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> upload Server Error!!', self.id)
         except:
             self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> upload Error!!', self.id)
 
@@ -301,26 +324,40 @@ class Camera():
 
     def synchronizeLocal(self):
         self.date = datetime.datetime.now()
-        self.printColor(str(self.date) + '-> Synchronizer ', self.id)
+        self.printColor(str(self.date) + '->' + str(self.cameraName), self.id)
         # CONTRASTAMOS QUE LA HORA ACTUAL NO SE ENCUENTRE EN EL RANGO DE LAS RESTRICCIONES
         isRestrict, hourRestrict = self.restrictHour()
         if isRestrict:
             self.isWorking = False
             self.printColor(str(self.date) + '-> Hora restringida ' + str(hourRestrict[0]) + ' - ' + str(hourRestrict[1]), self.id)
         else:
-            self.taverseLocal()
+            self.traverseLocal()
 
-    def taverseLocal(self):
+    def syncUpdateImageWeb(self):
+        self.date = datetime.datetime.now()
+        self.printColor(str(self.date) + '->' + str(self.cameraName), self.id)
+        isRestrict, hourRestrict = self.restrictHour()
+        if isRestrict:
+            self.isWorking = False
+            self.printColor(str(self.date) + '-> Hora restringida ' + str(hourRestrict[0]) + ' - ' + str(hourRestrict[1]), self.id)
+        else:
+            self.generateDatePath()
+            pathImages = self.GLOBALPATH + self.directory + self.filenamePath
+            filename = sorted(os.listdir(pathImages))[-1]
+            self.sendWEB(pathImages, filename)
+
+    def traverseLocal(self):
         for root, subFolder, files in os.walk(self.GLOBALPATH):
             # print root, subFolder
             for item in files:
                 if item.endswith('.jpg'):
                     origin = root + '/'
-                    dest = self.ftpPathUp + origin.replace(self.GLOBALPATH, '')
                     if self.urlUp is not None:
                         self.sendWEB(origin, item)
 
-                    self.sendFTP(origin, dest, item)
+                    if self.ftpPathUp is not None:
+                        dest = self.ftpPathUp + origin.replace(self.GLOBALPATH, '')
+                        self.sendFTP(origin, dest, item)
 
                     # print origin
                     # print dest
@@ -418,8 +455,10 @@ class Camera():
             water.makeWatermark(date=self.today)
             # watermark.showImage()
 
-            if not thread:
-                puts(colored.green('     - edit image!!'))
+            if thread:
+                self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> edited image!!', self.id)
+            else:
+                puts(colored.green('     - edited image!!'))
         except:
             if thread:
                 self.printColor(str(self.date) + '-> Error editting: la imagen incompleta!', self.id)

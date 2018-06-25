@@ -6,12 +6,13 @@ import mapConfig
 import thread
 import time
 import datetime
+import sys, getopt
 
 SWITCH = True
 
 
 # ----- VARIABLES GLOBALES ------
-def main():
+def main(argv):
     global SWITCH
     global DATA
     global PATH
@@ -22,8 +23,21 @@ def main():
     global SECONDS
     global OBJCAMERA
 
+    global configFile
+
+    configFile = ''
+
+    try:
+        opts, args = getopt.getopt(argv, 'c:', ['config='])
+    except getopt.GetoptError:
+        sys.exit(2)
+
+    for opt, arg in opts:
+        if opt in ('-c', '--config'):
+            configFile = arg
+
     SWITCH = True
-    DATA = mapConfig.init()
+    DATA = mapConfig.init(configFile)
     SECONDS = DATA['SECONDS']
     PATH = DATA['ROOTPATH']
     FONT = DATA['FONT']
@@ -49,8 +63,10 @@ def taskCamera():
                 cam['FONT'] = FONT
                 cam['PATH_LOGO'] = PATH_LOGO
                 a.setParameters(cam)
-            else:
+            elif cam['type'] == 'sync':
                 a.setSynchronizer(cam)
+            else:
+                a.setSyncronizerWEB(cam)
             # a.printParams(cam)
             # -------------------
             # DECLARAMOS LOS THREADS
@@ -68,8 +84,10 @@ def threadTask(cam):
 
         if cam.type == 'camera':
             cam.getImageThread()
-        else:
+        elif cam.type == 'sync':
             cam.synchronizeLocal()
+        else:
+            cam.syncUpdateImageWeb()
         # cam.sendFTP()
         timeEnd = datetime.datetime.now()
         duration = timeEnd - timeInit
@@ -95,7 +113,7 @@ def threadTask(cam):
 
 
 if __name__ == "__main__":
-    main()
+    main(sys.argv[1:])
     # SE INICIA LA TAREA
     taskCamera()
 
@@ -110,4 +128,4 @@ if __name__ == "__main__":
         if cen is True:
             pass
         else:
-            exit()
+            sys.exit(1)
