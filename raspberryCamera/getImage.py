@@ -6,6 +6,7 @@ import datetime
 import os
 from pprint import pprint
 import ftplib
+import paramiko
 from PIL import Image
 import watermark
 import requests
@@ -14,6 +15,7 @@ from clint.textui import progress, colored, puts
 # from config import *
 
 SYNC = False
+
 
 class Camera():
     # DEFINICION DE VARIABLES
@@ -42,15 +44,24 @@ class Camera():
         self.date = None
         self.timeout = 5
         self.urlUp = ''
-        self.ftpPathUp = ''
-        self.ftpHost = ''
-        self.ftpUser = ''
-        self.ftpPass = ''
+
+        self.remoteConnect = ''
+        self.remotePathUp = ''
+        self.remoteHost = ''
+        self.remotePort = ''
+        self.remoteUser = ''
+        self.remotePass = ''
         self.destroyImageOriginal = False
 
         self.fontSize = 12
         self.sizeLogo = 100
         self.SWITCH = True
+        #
+        # self.sshPathUp = ''
+        # self.sshHost = ''
+        # self.sshPort = ''
+        # self.sshUser = ''
+        # self.sshPass = ''
 
     # def __del__(self):
     #     print ("del Camera")
@@ -74,10 +85,12 @@ class Camera():
         self.urlUp = params['urlUp']
 
         # [STRING] URL O SERVICIO PARA SUBIR LA IMAGEN A UN SERVIDOR EXTERNO MEDIANTE FTP
-        self.ftpPathUp = params['ftpPathUp']
-        self.ftpHost = params['ftpHost']
-        self.ftpUser = params['ftpUser']
-        self.ftpPass = params['ftpPass']
+        self.remoteConnect = params['remoteConnect']
+        self.remotePathUp = params['remotePathUp']
+        self.remoteHost = params['remoteHost']
+        self.remotePort = int(params['remotePort'])
+        self.remoteUser = params['remoteUser']
+        self.remotePass = params['remotePass']
 
         # [INT] PERIODO DE TIEMPO PARA VOLVER A HACER LA PETICION DE UNA IMAGEN
         self.timer = params['timer']
@@ -120,10 +133,12 @@ class Camera():
         # [BOOL] HABILITA O DESHABILITA UNA CAMARA
         self.enable = params['enable']
         # [STRING] URL O SERVICIO PARA SUBIR LA IMAGEN A UN SERVIDOR EXTERNO MEDIANTE FTP
-        self.ftpPathUp = params['ftpPathUp']
-        self.ftpHost = params['ftpHost']
-        self.ftpUser = params['ftpUser']
-        self.ftpPass = params['ftpPass']
+        self.remoteConnect = params['remoteConnect']
+        self.remotePathUp = params['remotePathUp']
+        self.remoteHost = params['remoteHost']
+        self.remotePort = int(params['remotePort'])
+        self.remoteUser = params['remoteUser']
+        self.remotePass = params['remotePass']
         # [INT] PERIODO DE TIEMPO PARA VOLVER A HACER LA PETICION DE UNA IMAGEN
         self.timer = params['timer']
         # [ARRAY] RESTRICIONES DE HORA, LOS RANGOS DENTRO DE ESTE ARRAY NO DESCARGARAN IMAGENES
@@ -151,6 +166,32 @@ class Camera():
         self.restrict = params['restrict']
         # [STRING] URL O SERVICIO PARA SUBIR LA IMAGEN A UN SERVIDOR EXTERNO MEDIANTE PETICION HTTPS POST
         self.urlUp = params['urlUp']
+        self.directory = params['directory']
+        self.SWITCH = params['SWITCH']
+
+    def setSyncronizerLocal(self, params):
+        self.type = params['type']
+        # [STRING] ID DE LA CAMARA
+        self.id = params['id']
+        # [STRING] PATH O RUTA ABSOLUTA DONDE SE ALMACENARA LA CARPETA DE IMAGENES, EJEMPLO home/user1/imagenes/
+        self.GLOBALPATH = params['GLOBALPATH']
+        # [STRING] NOMBRE IDENTIFICADOR DE LA CAMARA
+        self.cameraName = params['cameraName']
+        # [BOOL] HABILITA O DESHABILITA UNA CAMARA
+        self.enable = params['enable']
+        # [INT] PERIODO DE TIEMPO PARA VOLVER A HACER LA PETICION DE UNA IMAGEN
+        self.timer = params['timer']
+        # [ARRAY] RESTRICIONES DE HORA, LOS RANGOS DENTRO DE ESTE ARRAY NO DESCARGARAN IMAGENES
+        # EJEMPLO: [[00:00:00, 04:00:12],[07:51:19, 09:40:41]]
+        self.restrict = params['restrict']
+        # [STRING] URL O SERVICIO PARA SUBIR LA IMAGEN A UN SERVIDOR EXTERNO MEDIANTE FTP
+        self.remoteConnect = params['remoteConnect']
+        self.remotePathUp = params['remotePathUp']
+        self.remoteHost = params['remoteHost']
+        self.remotePort = int(params['remotePort'])
+        self.remoteUser = params['remoteUser']
+        self.remotePass = params['remotePass']
+
         self.directory = params['directory']
         self.SWITCH = params['SWITCH']
 
@@ -271,11 +312,13 @@ class Camera():
                     self.sendWEB(toPath, str(self.filename))
 
                 # CONDICIONAL: SI SE DESEA ENVIAR LA IMAGEN POR FTP
-                if cen and self.ftpPathUp is not None:
+                if cen and self.remoteConnect is not None:
                     origin = self.GLOBALPATH + str(self.directory) + self.filenamePath
-                    dest = self.ftpPathUp + str(self.directory) + self.filenamePath
-                    self.sendFTP(origin, dest, self.filename)
-
+                    dest = self.remotePathUp + str(self.directory) + self.filenamePath
+                    if self.remoteConnect == 'FTP':
+                        self.sendFTP(origin, dest, self.filename)
+                    else:
+                        self.sendSSH(origin, dest, self.filename)
 
             # -----------------------------------------------------------------------------------
         else:
@@ -294,33 +337,87 @@ class Camera():
             self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> upload Error!!', self.id)
 
     def sendFTP(self, source, dest, filename):
-        self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> uploading image FTP:'+ self.ftpUser + '@' + self.ftpHost, self.id)
+        self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> FTP uploading... image FTP:'+ self.remoteUser + '@' + self.remoteHost, self.id)
         try:
-            FTP = ftplib.FTP(self.ftpHost)
-            FTP.login(self.ftpUser, self.ftpPass)
+            FTP = ftplib.FTP(self.remoteHost)
+            FTP.login(self.remoteUser, self.remotePass)
             FTP.cwd('/')
         except:
-            self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> uploading Error Connection!!', self.id)
+            self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> FTP uploading Error Connection!!', self.id)
             return False
         try:
             FTP.cwd(dest)
         except:
             FTP.mkd(dest)
             FTP.cwd(dest)
-            self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> uploading Create Directory!', self.id)
+            self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> FTP uploading Create Directory!', self.id)
 
         try:
             uploadfile = open(source + filename, 'rb')
             FTP.storbinary('STOR ' + filename, uploadfile)
         except:
-            self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> uploading Error Saving!!', self.id)
+            self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> FTP uploading Error Saving!!', self.id)
             return False
 
         if self.destroyImageOriginal:
             os.remove(source + filename)
 
-        self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> uploaded Image!!', self.id)
+        self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> FTP uploaded image[' + filename + ']!!', self.id)
         return True
+
+    def sendSSH(self, source, dest, filename):
+        self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> SSH uploading... Image:' + self.remoteUser + '@' + self.remoteHost + ':' + str(self.remotePort), self.id)
+
+        client = paramiko.SSHClient()
+        client.load_system_host_keys()
+        try:
+            t = paramiko.Transport((self.remoteHost, self.remotePort))
+            t.connect(username=self.remoteUser, password=self.remotePass)
+        except:
+            self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> SSH uploading Error Connection!!', self.id)
+            return
+
+        sftp = paramiko.SFTPClient.from_transport(t)
+
+        try:
+            sftp.chdir(dest)  # Test if remote_path exists
+        except IOError:
+            self.mkdir_p(sftp, dest)
+            # sftp.mkdir(dest)  # Create remote_path
+            sftp.chdir(dest)
+            self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> SSH uploading Create Directory!', self.id)
+
+
+        try:
+            sftp.put(source + filename, filename)
+            self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> SSH uploaded Image[' + filename + ']!!',self.id)
+            sftp.close()
+            t.close()
+        except:
+            self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> SSH uploading Error Saving!!', self.id)
+
+        if self.destroyImageOriginal:
+            os.remove(source + filename)
+        return True
+
+    def mkdir_p(self, sftp, remote_directory):
+        """Change to this directory, recursively making new folders if needed.
+        Returns True if any folders were created."""
+        if remote_directory == '/':
+            # absolute path so change directory to root
+            sftp.chdir('/')
+            return
+        if remote_directory == '':
+            # top-level relative directory must exist
+            return
+        try:
+            sftp.chdir(remote_directory)  # sub-directory exists
+        except IOError:
+            dirname, basename = os.path.split(remote_directory.rstrip('/'))
+            self.mkdir_p(sftp, dirname)  # make parent directories
+            sftp.mkdir(basename)  # sub-directory missing, so created it
+            sftp.chdir(basename)
+            return True
 
     def synchronizeLocal(self):
         self.date = datetime.datetime.now()
@@ -333,6 +430,23 @@ class Camera():
         else:
             self.traverseLocal()
 
+    def traverseLocal(self):
+        for root, subFolder, files in os.walk(self.GLOBALPATH):
+            # print root, subFolder
+            for item in files:
+                if item.endswith('.jpg'):
+                    origin = root + '/'
+                    if self.urlUp is not None:
+                        self.sendWEB(origin, item)
+
+                    if self.remoteConnect is not None:
+                        dest = self.remotePathUp + origin.replace(self.GLOBALPATH, '')
+
+                        if self.remoteConnect == 'FTP':
+                            self.sendFTP(origin, dest, item)
+                        else:
+                            self.sendSSH(origin, dest, item)
+
     def syncUpdateImageWeb(self):
         self.date = datetime.datetime.now()
         self.printColor(str(self.date) + '->' + str(self.cameraName), self.id)
@@ -343,29 +457,39 @@ class Camera():
         else:
             self.generateDatePath()
             pathImages = self.GLOBALPATH + self.directory + self.filenamePath
-            filename = sorted(os.listdir(pathImages))[-1]
-            self.sendWEB(pathImages, filename)
 
-    def traverseLocal(self):
-        for root, subFolder, files in os.walk(self.GLOBALPATH):
-            # print root, subFolder
-            for item in files:
-                if item.endswith('.jpg'):
-                    origin = root + '/'
-                    if self.urlUp is not None:
-                        self.sendWEB(origin, item)
+            if os.path.exists(pathImages):
+                listImages = os.listdir(pathImages)
+                if len(listImages) > 0:
+                    filename = sorted(listImages)[-1]
+                    self.sendWEB(pathImages, filename)
+                else:
+                    self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> Error, vacio [' + pathImages + ']', self.id)
+            else:
+                self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> Error, no existe [' + pathImages + ']', self.id)
 
-                    if self.ftpPathUp is not None:
-                        dest = self.ftpPathUp + origin.replace(self.GLOBALPATH, '')
-                        self.sendFTP(origin, dest, item)
-
-                    # print origin
-                    # print dest
-                    # print item
-                    # print '------------------------------------'
-                # if item.endswith(".jpg"):
-                #     fileNamePath = str(os.path.join(root, subFolder, item))
-                #     print fileNamePath
+    def syncUpdateImageLocal(self):
+        self.date = datetime.datetime.now()
+        self.printColor(str(self.date) + '->' + str(self.cameraName), self.id)
+        isRestrict, hourRestrict = self.restrictHour()
+        if isRestrict:
+            self.isWorking = False
+            self.printColor(str(self.date) + '-> Hora restringida ' + str(hourRestrict[0]) + ' - ' + str(hourRestrict[1]), self.id)
+        else:
+            self.generateDatePath()
+            pathImages = self.GLOBALPATH + self.directory + self.filenamePath
+            if os.path.exists(pathImages):
+                listImages = os.listdir(pathImages)
+                if len(listImages) > 0:
+                    filename = sorted(listImages)[-1]
+                    if self.remoteConnect == 'FTP':
+                        self.sendFTP(pathImages, self.remotePathUp, filename)
+                    else:
+                        self.sendSSH(pathImages, self.remotePathUp, filename)
+                else:
+                    self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> Error, vacio [' + pathImages + ']', self.id)
+            else:
+                self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> Error, no existe [' + pathImages + ']', self.id)
 
     def traverseFTP(self, ftp, depth=0):
         # RECORRE TODO EL ARBOL DE CARPETAS DE UNA HOST FTP
@@ -375,7 +499,7 @@ class Camera():
         for entry in (path for path in ftp.nlst() if path not in ('.', '..')):
             try:
                 ftp.cwd(entry)
-                level[entry] = self.traverse(ftp, depth + 1)
+                level[entry] = self.traverseFTP(ftp, depth + 1)
                 ftp.cwd('..')
             except ftplib.error_perm:
                 level[entry] = None

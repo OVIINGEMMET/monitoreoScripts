@@ -65,8 +65,10 @@ def taskCamera():
                 a.setParameters(cam)
             elif cam['type'] == 'sync':
                 a.setSynchronizer(cam)
-            else:
+            elif cam['type'] == 'syncWeb':
                 a.setSyncronizerWEB(cam)
+            elif cam['type'] == 'syncLocal':
+                a.setSyncronizerLocal(cam)
             # a.printParams(cam)
             # -------------------
             # DECLARAMOS LOS THREADS
@@ -86,8 +88,10 @@ def threadTask(cam):
             cam.getImageThread()
         elif cam.type == 'sync':
             cam.synchronizeLocal()
-        else:
+        elif cam.type == 'syncWeb':
             cam.syncUpdateImageWeb()
+        elif cam.type == 'syncLocal':
+            cam.syncUpdateImageLocal()
         # cam.sendFTP()
         timeEnd = datetime.datetime.now()
         duration = timeEnd - timeInit
@@ -101,7 +105,7 @@ def threadTask(cam):
         else:
             lapso = 0
 
-        cam.printColor('waiting '+ str(lapso) + ' seconds...')
+        cam.printColor('waiting ' + str(lapso) + ' seconds...')
 
         if SECONDS is not None:
             # SI EL TIEMPO DE DESCARGA ES MENOR AL TIEMPO CONFIGURDO EN LA CAMARA

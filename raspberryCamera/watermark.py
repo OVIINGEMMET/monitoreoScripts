@@ -171,3 +171,11 @@ class Watermark():
 
         self.sourceImage.save(self.output, "JPEG")
 
+    def pasteScale(self, scalePath, outPath):
+        # CARGAMOS EL LOGO
+        scale = Image.open(scalePath)
+        lw = scale.size[0]
+        lh = scale.size[1]
+        sImage = self.sourceImage
+        sImage.paste(scale, (0, 0), scale)
+        sImage.save(outPath, "JPEG")
