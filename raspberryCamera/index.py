@@ -11,6 +11,13 @@ import sys, getopt
 SWITCH = True
 
 
+def help(text):
+    print (text)
+    print ('      index.py -h <help>')
+    print ('               -c <filename config.ini in principal PATH>')
+    print
+
+
 # ----- VARIABLES GLOBALES ------
 def main(argv):
     global SWITCH
@@ -28,12 +35,15 @@ def main(argv):
     configFile = ''
 
     try:
-        opts, args = getopt.getopt(argv, 'c:', ['config='])
+        opts, args = getopt.getopt(argv, 'hc:', ['config='])
     except getopt.GetoptError:
         sys.exit(2)
 
     for opt, arg in opts:
-        if opt in ('-c', '--config'):
+        if opt == '-h':
+            help('Help:')
+            sys.exit()
+        elif opt in ('-c', '--config'):
             configFile = arg
 
     SWITCH = True
