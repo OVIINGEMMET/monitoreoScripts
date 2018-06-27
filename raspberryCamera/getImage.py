@@ -15,7 +15,7 @@ from clint.textui import progress, colored, puts
 # from config import *
 
 SYNC = False
-
+VALID_EXTENSIONS = ('png', 'jpg')
 
 class Camera():
     # DEFINICION DE VARIABLES
@@ -56,14 +56,14 @@ class Camera():
         self.fontSize = 12
         self.sizeLogo = 100
         self.SWITCH = True
-        #
-        # self.sshPathUp = ''
-        # self.sshHost = ''
-        # self.sshPort = ''
-        # self.sshUser = ''
-        # self.sshPass = ''
 
-    # def __del__(self):
+        self.watermarkScale = False
+        self.pathScale = ''
+        self.axisX = 0
+        self.axisY = 0
+        self.filenameUp = None
+
+        # def __del__(self):
     #     print ("del Camera")
 
     # INICIALIZACION DE VARIABLES
@@ -169,6 +169,12 @@ class Camera():
         self.directory = params['directory']
         self.SWITCH = params['SWITCH']
 
+        self.watermarkScale = params['watermarkScale']
+        self.pathScale = params['pathScale']
+        self.axisX = params['axisX']
+        self.axisY = params['axisY']
+        self.filenameUp = params['filenameUp']
+
     def setSyncronizerLocal(self, params):
         self.type = params['type']
         # [STRING] ID DE LA CAMARA
@@ -191,6 +197,11 @@ class Camera():
         self.remotePort = int(params['remotePort'])
         self.remoteUser = params['remoteUser']
         self.remotePass = params['remotePass']
+        self.watermarkScale = params['watermarkScale']
+        self.pathScale = params['pathScale']
+        self.axisX = params['axisX']
+        self.axisY = params['axisY']
+        self.filenameUp = params['filenameUp']
 
         self.directory = params['directory']
         self.SWITCH = params['SWITCH']
@@ -462,7 +473,19 @@ class Camera():
                 listImages = os.listdir(pathImages)
                 if len(listImages) > 0:
                     filename = sorted(listImages)[-1]
-                    self.sendWEB(pathImages, filename)
+
+                    if self.watermarkScale:
+                        statePaste, pathUpLocal, filenameLocal = self.pasteScale(pathImages, self.GLOBALPATH + self.directory, filename, (self.axisX, self.axisY))
+
+                    else:
+                        statePaste = None
+                        pathUpLocal = pathImages
+                        filenameLocal = filename
+
+                    self.sendWEB(pathUpLocal, filenameLocal)
+
+                    if statePaste is not None:
+                        os.remove(pathUpLocal + filenameLocal)
                 else:
                     self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> Error, vacio [' + pathImages + ']', self.id)
             else:
@@ -482,10 +505,23 @@ class Camera():
                 listImages = os.listdir(pathImages)
                 if len(listImages) > 0:
                     filename = sorted(listImages)[-1]
-                    if self.remoteConnect == 'FTP':
-                        self.sendFTP(pathImages, self.remotePathUp, filename)
+
+                    if self.watermarkScale:
+                        statePaste, pathUpLocal, filenameLocal = self.pasteScale(pathImages, self.GLOBALPATH + self.directory, filename, (self.axisX, self.axisY))
+
                     else:
-                        self.sendSSH(pathImages, self.remotePathUp, filename)
+                        statePaste = None
+                        pathUpLocal = pathImages
+                        filenameLocal = filename
+
+                    if self.remoteConnect == 'FTP':
+                        self.sendFTP(pathUpLocal, self.remotePathUp, filenameLocal)
+                    else:
+                        self.sendSSH(pathUpLocal, self.remotePathUp, filenameLocal)
+
+                    if statePaste is not None:
+                        os.remove(pathUpLocal + filenameLocal)
+
                 else:
                     self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> Error, vacio [' + pathImages + ']', self.id)
             else:
@@ -588,6 +624,23 @@ class Camera():
                 self.printColor(str(self.date) + '-> Error editting: la imagen incompleta!', self.id)
             else:
                 puts(colored.red('     - Error editting: la imagen podria estar dañada.'))
+
+    def pasteScale(self, source, dest, filename, axis=(0, 0)):
+
+        if self.filenameUp is None or not self.filenameUp.lower().endswith(VALID_EXTENSIONS):
+            self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> filenameUp['+ self.filenameUp +'] extension invalida', self.id)
+            toFilename = filename
+        else:
+            toFilename = self.filenameUp
+
+        try:
+            water = watermark.Watermark()
+            water.makePasteScale(originalPath=source + filename, outPath=dest + toFilename, scalePath=self.pathScale, axis=axis)
+            self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> Edited imagen escala['+ filename +']!!', self.id)
+            return True, dest, toFilename
+        except:
+            self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> Error paste escala!!', self.id)
+            return False, source, filename
 
     def saveImage_urllib2(self, toPathFilename, thread=False):
         if not thread:
