@@ -17,6 +17,7 @@ from clint.textui import progress, colored, puts
 SYNC = False
 VALID_EXTENSIONS = ('png', 'jpg')
 
+
 class Camera():
     # DEFINICION DE VARIABLES
     def __init__(self):
@@ -347,15 +348,25 @@ class Camera():
         except:
             self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> upload Error!!', self.id)
 
-    def sendFTP(self, source, dest, filename):
-        self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> FTP uploading... image FTP:'+ self.remoteUser + '@' + self.remoteHost, self.id)
+    def connectFTP(self):
+        self.printColor(
+            str(self.date) + '->' + str(self.cameraName) + '-> FTP Connect:' + self.remoteUser + '@' + self.remoteHost,
+            self.id)
         try:
             FTP = ftplib.FTP(self.remoteHost)
             FTP.login(self.remoteUser, self.remotePass)
             FTP.cwd('/')
+            return True, FTP
         except:
-            self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> FTP uploading Error Connection!!', self.id)
-            return False
+            self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> FTP Error Connection!!', self.id)
+            return False, None
+
+    def sendFTP(self, source, dest, filename, FTP=None):
+
+        if FTP is None:
+            state, FTP = self.connectFTP()
+            if state is False:
+                return False
         try:
             FTP.cwd(dest)
         except:
@@ -376,19 +387,25 @@ class Camera():
         self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> FTP uploaded image[' + filename + ']!!', self.id)
         return True
 
-    def sendSSH(self, source, dest, filename):
-        self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> SSH uploading... Image:' + self.remoteUser + '@' + self.remoteHost + ':' + str(self.remotePort), self.id)
-
+    def connectSSH(self):
+        self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> SSH Connect:' + self.remoteUser + '@' + self.remoteHost + ':' + str(self.remotePort), self.id)
         client = paramiko.SSHClient()
         client.load_system_host_keys()
         try:
             t = paramiko.Transport((self.remoteHost, self.remotePort))
             t.connect(username=self.remoteUser, password=self.remotePass)
+            sftp = paramiko.SFTPClient.from_transport(t)
+            return True, sftp, t
         except:
-            self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> SSH uploading Error Connection!!', self.id)
-            return
+            self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> SSH uploading Error Connection!!',self.id)
+            return False, None, None
 
-        sftp = paramiko.SFTPClient.from_transport(t)
+    def sendSSH(self, source, dest, filename, sftp=None, t=None):
+
+        if sftp is None:
+            state, sftp, t = self.connectSSH()
+            if state is False:
+                return False
 
         try:
             sftp.chdir(dest)  # Test if remote_path exists
@@ -398,12 +415,9 @@ class Camera():
             sftp.chdir(dest)
             self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> SSH uploading Create Directory!', self.id)
 
-
         try:
             sftp.put(source + filename, filename)
             self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> SSH uploaded Image[' + filename + ']!!',self.id)
-            sftp.close()
-            t.close()
         except:
             self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> SSH uploading Error Saving!!', self.id)
 
@@ -442,6 +456,18 @@ class Camera():
             self.traverseLocal()
 
     def traverseLocal(self):
+        FTP = None
+        sftp = None
+        t = None
+
+        if self.remoteConnect == 'FTP':
+            state, FTP = self.connectFTP()
+        else:
+            state, sftp, t = self.connectSSH()
+
+        if state is False:
+            return
+
         for root, subFolder, files in os.walk(self.GLOBALPATH):
             # print root, subFolder
             for item in files:
@@ -454,9 +480,15 @@ class Camera():
                         dest = self.remotePathUp + origin.replace(self.GLOBALPATH, '')
 
                         if self.remoteConnect == 'FTP':
-                            self.sendFTP(origin, dest, item)
+                            self.sendFTP(origin, dest, item, FTP=FTP)
                         else:
-                            self.sendSSH(origin, dest, item)
+                            self.sendSSH(origin, dest, item, sftp=sftp, t=t)
+
+        if self.remoteConnect == 'FTP':
+            FTP.quit()
+        else:
+            sftp.close()
+            t.close()
 
     def syncUpdateImageWeb(self):
         self.date = datetime.datetime.now()
