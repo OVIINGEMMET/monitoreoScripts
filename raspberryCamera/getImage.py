@@ -7,7 +7,9 @@ import os
 from pprint import pprint
 import ftplib
 import paramiko
-from PIL import Image
+import stat
+# from collections import defaultdict
+# from PIL import Image
 import watermark
 import requests
 from requests.auth import HTTPDigestAuth
@@ -176,7 +178,7 @@ class Camera():
         self.axisY = params['axisY']
         self.filenameUp = params['filenameUp']
 
-    def setSyncronizerLocal(self, params):
+    def setSyncronizerLocalToServer(self, params):
         self.type = params['type']
         # [STRING] ID DE LA CAMARA
         self.id = params['id']
@@ -490,6 +492,99 @@ class Camera():
             sftp.close()
             t.close()
 
+    def synchronizeServerToLocal(self):
+        self.date = datetime.datetime.now()
+        self.printColor(str(self.date) + '->' + str(self.cameraName), self.id)
+
+        isRestrict, hourRestrict = self.restrictHour()
+        if isRestrict:
+            self.isWorking = False
+            self.printColor(str(self.date) + '-> Hora restringida ' + str(hourRestrict[0]) + ' - ' + str(hourRestrict[1]), self.id)
+        else:
+
+            if self.remoteConnect == 'FTP':
+                state, FTP = self.connectFTP()
+                if state is False:
+                    return
+                self.traverseFTP(FTP, self.remotePathUp)
+                FTP.quit()
+            else:
+                state, sftp, t = self.connectSSH()
+                if state is False:
+                    return
+                self.traverseSSH(sftp, self.remotePathUp)
+                sftp.close()
+                t.close()
+
+    def traverseSSH(self, sftp, path='.', files=None):
+        if files is None:
+            files = []
+            path = path[:-1]
+
+        a = sftp.listdir_attr(path)
+        for attr in a:
+            if stat.S_ISDIR(attr.st_mode):
+                self.traverseSSH(sftp, os.path.join(path, attr.filename), files)
+            else:
+                filename = attr.filename
+                sourcePath = path + '/'
+                destPath = self.GLOBALPATH + sourcePath.replace(self.remotePathUp, '')
+
+                if not os.path.exists(destPath):
+                    os.makedirs(destPath)
+                try:
+                    sftp.get(sourcePath + filename, destPath + filename)
+                    self.printColor(str(self.date) + '-> [' + filename + ']:: ' + sourcePath + ' >> ' + destPath, self.id)
+                    if self.destroyImageOriginal:
+                        sftp.remove(sourcePath + filename)
+                except:
+                    self.printColor(str(self.date) + '-> [' + filename + ']:: ERROR Download ' + sourcePath, self.id)
+        return files
+
+    def traverseFTP(self, ftp, path='.', pathTemp='', files=None):
+        if files is None:
+            files = []
+            ftp.cwd(path)
+            # pathTemp = path
+        for attr in ftp.nlst():
+            try:
+                ftp.cwd(attr)
+                self.traverseFTP(ftp, attr, pathTemp + attr + '/', files)
+                ftp.cwd('../')
+            except:
+                filename = attr
+                sourcePath = self.remotePathUp + pathTemp
+                destPath = self.GLOBALPATH + pathTemp
+
+                if not os.path.exists(destPath):
+                    os.makedirs(destPath)
+                try:
+                    with open(destPath + filename, "wb") as f:
+                        ftp.retrbinary("RETR " + filename, f.write)
+                    self.printColor(str(self.date) + '-> [' + filename + ']:: ' + sourcePath + ' >> ' + destPath, self.id)
+                    if self.destroyImageOriginal:
+                        ftp.delete(filename)
+                except:
+                    if os.path.exists(destPath + filename):
+                        os.remove(destPath + filename)
+                    self.printColor(str(self.date) + '-> [' + filename + ']:: ERROR Download ' + sourcePath, self.id)
+
+        return files
+
+    def traverseFTP2(self, ftp, depth=0):
+        # RECORRE TODO EL ARBOL DE CARPETAS DE UNA HOST FTP
+        if depth > 4:
+            return ['depth > 10']
+        level = {}
+        for entry in (path for path in ftp.nlst() if path not in ('.', '..')):
+            try:
+                ftp.cwd(entry)
+                level[entry] = self.traverseFTP(ftp, depth + 1)
+                ftp.cwd('..')
+            except ftplib.error_perm:
+                level[entry] = None
+        return level
+
     def syncUpdateImageWeb(self):
         self.date = datetime.datetime.now()
         self.printColor(str(self.date) + '->' + str(self.cameraName), self.id)
@@ -523,7 +618,7 @@ class Camera():
             else:
                 self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> Error, no existe [' + pathImages + ']', self.id)
 
-    def syncUpdateImageLocal(self):
+    def syncUpdateImageLocalToServer(self):
         self.date = datetime.datetime.now()
         self.printColor(str(self.date) + '->' + str(self.cameraName), self.id)
         isRestrict, hourRestrict = self.restrictHour()
@@ -558,20 +653,6 @@ class Camera():
                     self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> Error, vacio [' + pathImages + ']', self.id)
             else:
                 self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> Error, no existe [' + pathImages + ']', self.id)
-
-    def traverseFTP(self, ftp, depth=0):
-        # RECORRE TODO EL ARBOL DE CARPETAS DE UNA HOST FTP
-        if depth > 4:
-            return ['depth > 10']
-        level = {}
-        for entry in (path for path in ftp.nlst() if path not in ('.', '..')):
-            try:
-                ftp.cwd(entry)
-                level[entry] = self.traverseFTP(ftp, depth + 1)
-                ftp.cwd('..')
-            except ftplib.error_perm:
-                level[entry] = None
-        return level
 
     def restrictHour(self):
         if self.restrict is None:

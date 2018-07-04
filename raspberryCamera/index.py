@@ -75,10 +75,12 @@ def taskCamera():
                 a.setParameters(cam)
             elif cam['type'] == 'sync':
                 a.setSynchronizer(cam)
+            elif cam['type'] == 'syncServerToLocal':
+                a.setSynchronizer(cam)
             elif cam['type'] == 'syncWeb':
                 a.setSyncronizerWEB(cam)
-            elif cam['type'] == 'syncLocal':
-                a.setSyncronizerLocal(cam)
+            elif cam['type'] == 'syncLocalToServer':
+                a.setSyncronizerLocalToServer(cam)
             # a.printParams(cam)
             # -------------------
             # DECLARAMOS LOS THREADS
@@ -98,10 +100,12 @@ def threadTask(cam):
             cam.getImageThread()
         elif cam.type == 'sync':
             cam.synchronizeLocal()
+        elif cam.type == 'syncServerToLocal':
+            cam.synchronizeServerToLocal()
         elif cam.type == 'syncWeb':
             cam.syncUpdateImageWeb()
-        elif cam.type == 'syncLocal':
-            cam.syncUpdateImageLocal()
+        elif cam.type == 'syncLocalToServer':
+            cam.syncUpdateImageLocalToServer()
         # cam.sendFTP()
         timeEnd = datetime.datetime.now()
         duration = timeEnd - timeInit
