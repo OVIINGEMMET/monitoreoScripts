@@ -4,6 +4,7 @@
 import urllib2
 import datetime
 import os
+import sys
 from pprint import pprint
 import ftplib
 import paramiko
@@ -12,6 +13,8 @@ import stat
 # from PIL import Image
 import watermark
 import requests
+import time
+import shutil
 from requests.auth import HTTPDigestAuth
 from clint.textui import progress, colored, puts
 # from config import *
@@ -65,6 +68,11 @@ class Camera():
         self.axisX = 0
         self.axisY = 0
         self.filenameUp = None
+
+        self.sourcePath = ''
+        self.outcomePath = ''
+        self.frequency = None
+        self.copySpecial = ''
 
         # def __del__(self):
     #     print ("del Camera")
@@ -207,6 +215,32 @@ class Camera():
         self.filenameUp = params['filenameUp']
 
         self.directory = params['directory']
+        self.SWITCH = params['SWITCH']
+
+    def setSyncronizerLocalToLocal(self, params):
+        self.type = params['type']
+        # [STRING] ID DE LA CAMARA
+        self.id = params['id']
+        # [STRING] PATH O RUTA ABSOLUTA DONDE SE ALMACENARA LA CARPETA DE IMAGENES, EJEMPLO home/user1/imagenes/
+        self.GLOBALPATH = params['GLOBALPATH']
+        # [STRING] NOMBRE IDENTIFICADOR DE LA CAMARA
+        self.cameraName = params['cameraName']
+        # [BOOL] HABILITA O DESHABILITA UNA CAMARA
+        self.enable = params['enable']
+        # [INT] PERIODO DE TIEMPO PARA VOLVER A HACER LA PETICION DE UNA IMAGEN
+        self.timer = params['timer']
+        # [ARRAY] RESTRICIONES DE HORA, LOS RANGOS DENTRO DE ESTE ARRAY NO DESCARGARAN IMAGENES
+        # EJEMPLO: [[00:00:00, 04:00:12],[07:51:19, 09:40:41]]
+        self.restrict = params['restrict']
+
+        self.watermarkScale = params['watermarkScale']
+        self.pathScale = params['pathScale']
+        self.axisX = params['axisX']
+        self.axisY = params['axisY']
+
+        self.sourcePath = params['sourcePath']
+        self.outcomePath = params['outcomePath']
+        self.frequency = params['frequency']
         self.SWITCH = params['SWITCH']
 
     def printParams(self, params):
@@ -422,9 +456,29 @@ class Camera():
             self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> SSH uploaded Image[' + filename + ']!!',self.id)
         except:
             self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> SSH uploading Error Saving!!', self.id)
+            return False
 
         if self.destroyImageOriginal:
             os.remove(source + filename)
+        return True
+
+    def sendLOCAL(self, source, dest, filename):
+
+        if self.evaluateFile(source + filename):
+            if not os.path.exists(dest):
+                os.makedirs(dest)
+                self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> LOCAL Create Directory!', self.id)
+            try:
+                os.popen(self.copySpecial + ' ' + source + filename + ' ' +  dest + filename)
+                # shutil.copy2(source + filename, dest + filename)
+                self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> LOCAL copied Image[' + filename + ']!!', self.id)
+            except:
+                self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> LOCAL Copying Error Saving!!', self.id)
+                return False
+
+            if self.destroyImageOriginal:
+                os.remove(source + filename)
+
         return True
 
     def mkdir_p(self, sftp, remote_directory):
@@ -446,6 +500,7 @@ class Camera():
             sftp.chdir(basename)
             return True
 
+    # SINCRONIZA TODOS LOS ARCHIVOS DE DIRECTORIOS Y SUBDIRECTORIOS DE LOCAL A UN SERVIDOR
     def synchronizeLocal(self):
         self.date = datetime.datetime.now()
         self.printColor(str(self.date) + '->' + str(self.cameraName), self.id)
@@ -464,8 +519,21 @@ class Camera():
 
         if self.remoteConnect == 'FTP':
             state, FTP = self.connectFTP()
-        else:
+            time.sleep(1)
+        elif self.remoteConnect == 'SSH':
             state, sftp, t = self.connectSSH()
+            time.sleep(1)
+        elif self.remoteConnect == 'LOCAL':
+            plataforma = sys.platform
+            if plataforma == 'win32':
+                self.copySpecial = 'copy'
+            else:
+                self.copySpecial = 'cp'
+            state = True
+            time.sleep(2)
+        else:
+            self.printColor(str(self.date) + '-> Elija un protocolo de conexion permitido [FTP, SSH, LOCAL]', self.id)
+            return
 
         if state is False:
             return
@@ -483,15 +551,32 @@ class Camera():
 
                         if self.remoteConnect == 'FTP':
                             self.sendFTP(origin, dest, item, FTP=FTP)
-                        else:
+                        elif self.remoteConnect == 'SSH':
                             self.sendSSH(origin, dest, item, sftp=sftp, t=t)
+                        elif self.remoteConnect == 'LOCAL':
+                            self.sendLOCAL(origin, dest, item)
+                        else:
+                            return
 
         if self.remoteConnect == 'FTP':
             FTP.quit()
-        else:
+        elif self.remoteConnect == 'SSH':
             sftp.close()
             t.close()
 
+    def synchronizeLocalToLocal(self):
+        self.date = datetime.datetime.now()
+        self.printColor(str(self.date) + '->' + str(self.cameraName), self.id)
+        # CONTRASTAMOS QUE LA HORA ACTUAL NO SE ENCUENTRE EN EL RANGO DE LAS RESTRICCIONES
+        isRestrict, hourRestrict = self.restrictHour()
+        if isRestrict:
+            self.isWorking = False
+            self.printColor(
+                str(self.date) + '-> Hora restringida ' + str(hourRestrict[0]) + ' - ' + str(hourRestrict[1]), self.id)
+        else:
+            self.traverseLocal()
+
+    # SINCRONIZA TODOS LOS ARCHIVOS DE DIRECTORIOS Y SUBDIRECTORIOS DE UN SERVIDOR AL LOCAL
     def synchronizeServerToLocal(self):
         self.date = datetime.datetime.now()
         self.printColor(str(self.date) + '->' + str(self.cameraName), self.id)
@@ -524,7 +609,7 @@ class Camera():
         a = sftp.listdir_attr(path)
         for attr in a:
             if stat.S_ISDIR(attr.st_mode):
-                self.traverseSSH(sftp, os.path.join(path, attr.filename), files)
+                self.traverseSSH(sftp, path + '/' + attr.filename, files)
             else:
                 filename = attr.filename
                 sourcePath = path + '/'
@@ -535,7 +620,7 @@ class Camera():
                 try:
                     sftp.get(sourcePath + filename, destPath + filename)
                     self.printColor(str(self.date) + '-> [' + filename + ']:: ' + sourcePath + ' >> ' + destPath, self.id)
-                    if self.destroyImageOriginal:
+                    if self.destroyImageOriginal and self.evaluateFile(destPath + filename):
                         sftp.remove(sourcePath + filename)
                 except:
                     self.printColor(str(self.date) + '-> [' + filename + ']:: ERROR Download ' + sourcePath, self.id)
@@ -562,7 +647,8 @@ class Camera():
                     with open(destPath + filename, "wb") as f:
                         ftp.retrbinary("RETR " + filename, f.write)
                     self.printColor(str(self.date) + '-> [' + filename + ']:: ' + sourcePath + ' >> ' + destPath, self.id)
-                    if self.destroyImageOriginal:
+
+                    if self.destroyImageOriginal and self.evaluateFile(destPath + filename):
                         ftp.delete(filename)
                 except:
                     if os.path.exists(destPath + filename):
@@ -585,6 +671,7 @@ class Camera():
                 level[entry] = None
         return level
 
+    # SINCRONIZA LA ULTIMA IMAGEN OBTENIDA A UN SERVIDOR WEB POR CONEXION HTTP
     def syncUpdateImageWeb(self):
         self.date = datetime.datetime.now()
         self.printColor(str(self.date) + '->' + str(self.cameraName), self.id)
@@ -609,15 +696,17 @@ class Camera():
                         pathUpLocal = pathImages
                         filenameLocal = filename
 
-                    self.sendWEB(pathUpLocal, filenameLocal)
+                    if self.watermarkScale is False or statePaste is True:
+                        self.sendWEB(pathUpLocal, filenameLocal)
 
-                    if statePaste is not None:
+                    if statePaste is True:
                         os.remove(pathUpLocal + filenameLocal)
                 else:
                     self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> Error, vacio [' + pathImages + ']', self.id)
             else:
                 self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> Error, no existe [' + pathImages + ']', self.id)
 
+    # SINCRONIZA LA ULTIMA IMAGEN OBTENIDA A UN SERVIDOR POR CONEXION SSH O FTP
     def syncUpdateImageLocalToServer(self):
         self.date = datetime.datetime.now()
         self.printColor(str(self.date) + '->' + str(self.cameraName), self.id)
@@ -641,12 +730,13 @@ class Camera():
                         pathUpLocal = pathImages
                         filenameLocal = filename
 
-                    if self.remoteConnect == 'FTP':
-                        self.sendFTP(pathUpLocal, self.remotePathUp, filenameLocal)
-                    else:
-                        self.sendSSH(pathUpLocal, self.remotePathUp, filenameLocal)
+                    if self.watermarkScale is False or statePaste is True:
+                        if self.remoteConnect == 'FTP':
+                            self.sendFTP(pathUpLocal, self.remotePathUp, filenameLocal)
+                        else:
+                            self.sendSSH(pathUpLocal, self.remotePathUp, filenameLocal)
 
-                    if statePaste is not None:
+                    if statePaste is True:
                         os.remove(pathUpLocal + filenameLocal)
 
                 else:
@@ -834,3 +924,7 @@ class Camera():
             else:
                 puts(colored.red('     - Error saving: el servidor esta desconectado'))
             return False
+
+    def evaluateFile(self, filename):
+        size = os.path.getsize(filename)
+        return size > 0
