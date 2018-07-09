@@ -82,7 +82,7 @@ def taskCamera():
             elif cam['type'] == 'updateImageServer':
                 a.setSyncronizerLocalToServer(cam)
             elif cam['type'] == 'generateScale':
-                a.setSyncronizerLocalToLocal(cam)
+                a.setGenerateScale(cam)
             # a.printParams(cam)
             # -------------------
             # DECLARAMOS LOS THREADS
@@ -109,7 +109,7 @@ def threadTask(cam):
         elif cam.type == 'updateImageServer':
             cam.syncUpdateImageLocalToServer()
         elif cam.type == 'generateScale':
-            cam.synchronizeLocalToLocal()
+            cam.generetaScale()
         # cam.sendFTP()
         timeEnd = datetime.datetime.now()
         duration = timeEnd - timeInit

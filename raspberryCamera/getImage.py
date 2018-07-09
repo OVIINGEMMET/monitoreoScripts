@@ -74,6 +74,14 @@ class Camera():
         self.frequency = None
         self.copySpecial = ''
 
+        self.dateTimeFrom = ''
+        self.dateTimeTo = ''
+        self.timeFrom = ''
+        self.timeTo = ''
+        self.lapseTime = 0
+        self.exit = False
+
+
         # def __del__(self):
     #     print ("del Camera")
 
@@ -217,7 +225,7 @@ class Camera():
         self.directory = params['directory']
         self.SWITCH = params['SWITCH']
 
-    def setSyncronizerLocalToLocal(self, params):
+    def setGenerateScale(self, params):
         self.type = params['type']
         # [STRING] ID DE LA CAMARA
         self.id = params['id']
@@ -231,17 +239,23 @@ class Camera():
         self.timer = params['timer']
         # [ARRAY] RESTRICIONES DE HORA, LOS RANGOS DENTRO DE ESTE ARRAY NO DESCARGARAN IMAGENES
         # EJEMPLO: [[00:00:00, 04:00:12],[07:51:19, 09:40:41]]
-        self.restrict = params['restrict']
+        # self.restrict = params['restrict']
 
-        self.watermarkScale = params['watermarkScale']
+        # self.watermarkScale = params['watermarkScale']
         self.pathScale = params['pathScale']
         self.axisX = params['axisX']
         self.axisY = params['axisY']
 
         self.sourcePath = params['sourcePath']
         self.outcomePath = params['outcomePath']
-        self.frequency = params['frequency']
+        self.dateTimeFrom = params['dateTimeFrom']
+        self.dateTimeTo = params['dateTimeTo']
         self.SWITCH = params['SWITCH']
+
+        self.frequency = params['frequency']
+        if self.frequency is not None:
+            self.frequency = int(self.frequency)
+
 
     def printParams(self, params):
         pprint(params)
@@ -530,7 +544,7 @@ class Camera():
             else:
                 self.copySpecial = 'cp'
             state = True
-            time.sleep(2)
+            time.sleep(3)
         else:
             self.printColor(str(self.date) + '-> Elija un protocolo de conexion permitido [FTP, SSH, LOCAL]', self.id)
             return
@@ -564,17 +578,17 @@ class Camera():
             sftp.close()
             t.close()
 
-    def synchronizeLocalToLocal(self):
-        self.date = datetime.datetime.now()
-        self.printColor(str(self.date) + '->' + str(self.cameraName), self.id)
-        # CONTRASTAMOS QUE LA HORA ACTUAL NO SE ENCUENTRE EN EL RANGO DE LAS RESTRICCIONES
-        isRestrict, hourRestrict = self.restrictHour()
-        if isRestrict:
-            self.isWorking = False
-            self.printColor(
-                str(self.date) + '-> Hora restringida ' + str(hourRestrict[0]) + ' - ' + str(hourRestrict[1]), self.id)
-        else:
-            self.traverseLocal()
+    # def synchronizeLocalToLocal(self):
+    #     self.date = datetime.datetime.now()
+    #     self.printColor(str(self.date) + '->' + str(self.cameraName), self.id)
+    #     # CONTRASTAMOS QUE LA HORA ACTUAL NO SE ENCUENTRE EN EL RANGO DE LAS RESTRICCIONES
+    #     isRestrict, hourRestrict = self.restrictHour()
+    #     if isRestrict:
+    #         self.isWorking = False
+    #         self.printColor(
+    #             str(self.date) + '-> Hora restringida ' + str(hourRestrict[0]) + ' - ' + str(hourRestrict[1]), self.id)
+    #     else:
+    #         self.traverseLocal()
 
     # SINCRONIZA TODOS LOS ARCHIVOS DE DIRECTORIOS Y SUBDIRECTORIOS DE UN SERVIDOR AL LOCAL
     def synchronizeServerToLocal(self):
@@ -744,6 +758,50 @@ class Camera():
             else:
                 self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> Error, no existe [' + pathImages + ']', self.id)
 
+    def generetaScale (self):
+        try:
+            dFrom = datetime.datetime.strptime(self.dateTimeFrom, '%Y-%m-%dT%H:%M:%S')
+            dTo = datetime.datetime.strptime(self.dateTimeTo, '%Y-%m-%dT%H:%M:%S')
+        except:
+            self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> Error, se debe respetar el formato de tiempo [YYYY-MM-DDTHH:MM:SS]', self.id)
+            return False
+
+        if not os.path.exists(self.pathScale):
+            self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> la ruta de pathScale ['+ self.pathScale +'] no existe', self.id)
+            return False
+
+        # definimos los rangos de hora permitidos
+        self.timeFrom = datetime.time(dFrom.hour, dFrom.minute, dFrom.second)
+        self.timeTo = datetime.time(dTo.hour, dTo.minute, dTo.second)
+
+        if dFrom > dTo:
+            self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> Error, DatetimeFrom debe ser un fecha anterior DatetimeTo', self.id)
+            return False
+
+        diffDays = (dTo - dFrom).days
+        for i in range(diffDays + 1):
+            self.exit = False
+            self.lapseTime = 0
+            pickDate = dFrom + datetime.timedelta(days=i)
+            self.generateDatePath(pickDate)
+            temporalPath = self.sourcePath + self.filenamePath
+            # print temporalPath
+            if os.path.exists(temporalPath):
+                listImages = sorted(os.listdir(temporalPath))
+                if len(listImages) > 0:
+                    self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> Read ' + temporalPath, self.id)
+                    temporalOutPath = self.outcomePath + self.filenamePath
+                    if not os.path.exists(temporalOutPath):
+                        os.makedirs(temporalOutPath)
+
+                    for image in listImages:
+                        if not self.exit:
+                            if self.validateHour(image):
+                                self.filenameUp = image
+                                self.pasteScale(temporalPath, temporalOutPath, image, (self.axisX, self.axisY))
+                        else:
+                            break
+
     def restrictHour(self):
         if self.restrict is None:
             return False, []
@@ -780,11 +838,15 @@ class Camera():
         opener = urllib2.build_opener(authlocal)
         urllib2.install_opener(opener)
 
-    def generateDatePath(self):
+    def generateDatePath(self, date=None):
 
         # GENERAMOS LA ESTRUCTURA DE CARPETAS ANIDADAS POR ANIO/MES/DIA/
-        self.today = datetime.datetime.now()
-        today = self.today
+        if date is None:
+            self.today = datetime.datetime.now()
+            today = self.today
+        else:
+            today = date
+
         if int(today.day) < 10:
             dia = '0' + str(today.day)
         else:
@@ -831,7 +893,7 @@ class Camera():
     def pasteScale(self, source, dest, filename, axis=(0, 0)):
 
         if self.filenameUp is None or not self.filenameUp.lower().endswith(VALID_EXTENSIONS):
-            self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> filenameUp['+ self.filenameUp +'] extension invalida', self.id)
+            self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> filenameUp['+ str(self.filenameUp) +'] extension invalida', self.id)
             toFilename = filename
         else:
             toFilename = self.filenameUp
@@ -928,3 +990,39 @@ class Camera():
     def evaluateFile(self, filename):
         size = os.path.getsize(filename)
         return size > 0
+
+    def validateHour(self, filename):
+        year = filename[-18:-16]
+        month = filename[-15:-13]
+        day = filename[-13:-11]
+
+        try:
+            hour = int(filename[-10:-8])
+            minute = int(filename[-8:-6])
+            second = int(filename[-6:-4])
+        except:
+            return False
+
+        # obtenemos la hora de la imagen por el nombre del archivo
+        fileTime = datetime.time(hour, minute, second)
+        # validamos que la hora de la imagen sea menor que maximo rango permitido en caso de ser mayor
+        # activamos la opcion para escapar del bucle de lectura del directorio
+        if fileTime > self.timeTo:
+            self.exit = True
+
+        # obtenemos el hora en segundos de la imagen
+        newlapseTime = hour * 60 * 60 + minute * 60 + second
+        difflapse = newlapseTime - self.lapseTime
+
+        # la frecuencia es el tiempo que debe de transcurrir para agregar otras imagen a la secuencia
+        # la difflapse es el tiempo transcurrido en segundos desde la ultima imagen registrada
+        if difflapse < self.frequency:
+            # si no transcurrido el tiempo minimo para registrar otra imagen se inavalida la imagen evaluada
+            return False
+        else:
+            # caso contrario se actualiza tiempo de la ultima imagen registrada
+            self.lapseTime = newlapseTime
+
+        # verificamos que la imagen este entre el rango de tiempo permitido
+        return self.timeFrom <= fileTime <= self.timeTo
+
