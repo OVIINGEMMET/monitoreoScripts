@@ -62,6 +62,7 @@ class Camera():
         self.fontSize = 12
         self.sizeLogo = 100
         self.SWITCH = True
+        self.EXEC = [None, None]
 
         self.watermarkScale = False
         self.pathScale = ''
@@ -75,6 +76,7 @@ class Camera():
         self.copySpecial = ''
         self.delay = 1
         self.analysis = True
+        self.rebootError = None
 
         self.dateTimeFrom = ''
         self.dateTimeTo = ''
@@ -83,6 +85,10 @@ class Camera():
         self.lapseTime = 0
         self.exit = False
 
+        self.countErrors = 0
+        self.totalCountErrors = 0
+        self.errorTraverseSSH = 0
+        self.errorTraverseFTP = 0
 
         # def __del__(self):
     #     print ("del Camera")
@@ -141,7 +147,13 @@ class Camera():
         # [INT] TIMEPO MAXIMO DE ESPERA PARA SOLICITAR UNA IMAGEN
         self.timeout = params['timeout']
         self.destroyImageOriginal = params['destroyImageOriginal']
+        try:
+            self.rebootError = int(params['rebootError'])
+        except:
+            self.rebootError = None
+
         self.SWITCH = params['SWITCH']
+        self.EXEC = params['EXEC']
 
     def setSynchronizer(self, params):
         self.type = params['type']
@@ -170,7 +182,14 @@ class Camera():
         # [STRING] URL O SERVICIO PARA SUBIR LA IMAGEN A UN SERVIDOR EXTERNO MEDIANTE PETICION HTTPS POST
         self.urlUp = params['urlUp']
         self.destroyImageOriginal = params['destroyImageOriginal']
+
+        try:
+            self.rebootError = int(params['rebootError'])
+        except:
+            self.rebootError = None
+
         self.SWITCH = params['SWITCH']
+        self.EXEC = params['EXEC']
 
     def setSynchronizerServerToLocal(self, params):
         self.type = params['type']
@@ -199,7 +218,13 @@ class Camera():
         # [STRING] URL O SERVICIO PARA SUBIR LA IMAGEN A UN SERVIDOR EXTERNO MEDIANTE PETICION HTTPS POST
         self.urlUp = params['urlUp']
         self.destroyImageOriginal = params['destroyImageOriginal']
+        try:
+            self.rebootError = int(params['rebootError'])
+        except:
+            self.rebootError = None
+
         self.SWITCH = params['SWITCH']
+        self.EXEC = params['EXEC']
 
     def setSyncronizerWEB(self, params):
         self.type = params['type']
@@ -226,6 +251,13 @@ class Camera():
         self.axisX = params['axisX']
         self.axisY = params['axisY']
         self.filenameUp = params['filenameUp']
+        try:
+            self.rebootError = int(params['rebootError'])
+        except:
+            self.rebootError = None
+
+        self.SWITCH = params['SWITCH']
+        self.EXEC = params['EXEC']
 
     def setSyncronizerLocalToServer(self, params):
         self.type = params['type']
@@ -256,7 +288,13 @@ class Camera():
         self.filenameUp = params['filenameUp']
 
         self.directory = params['directory']
+        try:
+            self.rebootError = int(params['rebootError'])
+        except:
+            self.rebootError = None
+
         self.SWITCH = params['SWITCH']
+        self.EXEC = params['EXEC']
 
     def setGenerateScale(self, params):
         self.type = params['type']
@@ -428,6 +466,7 @@ class Camera():
             else:
                 self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> upload Server Error!!', self.id)
         except:
+            self.countErrors = self.countErrors + 1
             self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> upload Error!!', self.id)
 
     def connectFTP(self):
@@ -441,6 +480,7 @@ class Camera():
             FTP.cwd('/')
             return True, FTP
         except:
+            self.countErrors = self.countErrors + 1
             self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> FTP Error Connection!!', self.id)
             return False, None
 
@@ -452,17 +492,27 @@ class Camera():
         try:
             FTP.cwd(dest)
         except:
-            FTP.mkd(dest)
-            FTP.cwd(dest)
-            self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> FTP uploading Create Directory! ' + dest, self.id)
 
-        uploadfile = open(source + filename, 'rb')
-        FTP.storbinary('STOR ' + filename, uploadfile)
+            try:
+                FTP.mkd(dest)
+                FTP.cwd(dest)
+                self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> FTP uploading Create Directory! ' + dest, self.id)
+            except:
+                self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> FTP You need permission to create folders!' + dest, self.id)
+                return False
+
+        try:
+            uploadfile = open(source + filename, 'rb')
+            FTP.storbinary('STOR ' + filename, uploadfile)
+            self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> FTP uploaded Image[' + filename + ']!!',self.id)
+        except:
+            self.countErrors = self.countErrors + 1
+            self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> FTP uploading Error Saving[' + filename + ']!!', self.id)
+            return False
 
         if self.destroyImageOriginal:
             os.remove(source + filename)
 
-        self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> FTP uploaded image[' + filename + ']!!', self.id)
         return True
 
     def connectSSH(self):
@@ -475,12 +525,13 @@ class Camera():
             sftp = paramiko.SFTPClient.from_transport(t)
             return True, sftp, t
         except:
-            self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> SSH uploading Error Connection!!',self.id)
+            self.countErrors = self.countErrors + 1
+            self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> SSH Error Connection!!', self.id)
             return False, None, None
 
     def sendSSH(self, source, dest, filename, sftp=None, t=None):
 
-        if sftp is None:
+        if sftp is None or t is None:
             state, sftp, t = self.connectSSH()
             if state is False:
                 return False
@@ -497,7 +548,8 @@ class Camera():
             sftp.put(source + filename, filename)
             self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> SSH uploaded Image[' + filename + ']!!',self.id)
         except:
-            self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> SSH uploading Error Saving!!', self.id)
+            self.countErrors = self.countErrors + 1
+            self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> SSH uploading Error Saving[' + filename + ']!!', self.id)
             return False
 
         if self.destroyImageOriginal:
@@ -518,7 +570,8 @@ class Camera():
 
                 self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> LOCAL copied Image[' + filename + ']!!', self.id)
             except:
-                self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> LOCAL Copying Error Saving!!', self.id)
+                self.countErrors = self.countErrors + 1
+                self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> LOCAL Copying Error Saving[' + filename + ']!!', self.id)
                 return False
 
             if self.destroyImageOriginal:
@@ -547,6 +600,7 @@ class Camera():
 
     # SINCRONIZA TODOS LOS ARCHIVOS DE DIRECTORIOS Y SUBDIRECTORIOS DE LOCAL A UN SERVIDOR
     def synchronizeLocal(self):
+        self.countErrors = 0
         self.date = datetime.datetime.now()
         self.printColor(str(self.date) + '->' + str(self.cameraName), self.id)
         # CONTRASTAMOS QUE LA HORA ACTUAL NO SE ENCUENTRE EN EL RANGO DE LAS RESTRICCIONES
@@ -556,6 +610,7 @@ class Camera():
             self.printColor(str(self.date) + '-> Hora restringida ' + str(hourRestrict[0]) + ' - ' + str(hourRestrict[1]), self.id)
         else:
             self.traverseLocal()
+        self.rebootByError()
 
     def traverseLocal(self):
         FTP = None
@@ -623,8 +678,10 @@ class Camera():
                             return
 
         if self.remoteConnect == 'FTP':
+            self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> FTP Disconnected!!', self.id)
             FTP.quit()
         elif self.remoteConnect == 'SSH':
+            self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> SSH Disconnected!!', self.id)
             sftp.close()
             t.close()
 
@@ -653,6 +710,7 @@ class Camera():
 
     # SINCRONIZA TODOS LOS ARCHIVOS DE DIRECTORIOS Y SUBDIRECTORIOS DE UN SERVIDOR AL LOCAL
     def synchronizeServerToLocal(self):
+        self.countErrors = 0
         self.date = datetime.datetime.now()
         self.printColor(str(self.date) + '->' + str(self.cameraName), self.id)
 
@@ -668,6 +726,7 @@ class Camera():
                     return
                 self.traverseFTP(FTP, self.remotePathUp)
                 FTP.quit()
+                self.countErrors = self.countErrors + self.errorTraverseFTP
             else:
                 state, sftp, t = self.connectSSH()
                 if state is False:
@@ -675,11 +734,23 @@ class Camera():
                 self.traverseSSH(sftp, self.remotePathUp)
                 sftp.close()
                 t.close()
+                self.countErrors = self.countErrors + self.errorTraverseSSH
+        self.rebootByError()
+
+    def rebootByError(self):
+        self.totalCountErrors = self.totalCountErrors + self.countErrors
+        if self.rebootError and self.totalCountErrors >= self.rebootError:
+            self.printColor(str(self.date) + '-> [TOTAL ERRORS: ' + str(self.totalCountErrors) + ' REBOOT NOW!!!] ', self.id)
+            print
+            os.execv(self.EXEC[0], self.EXEC[1])
+        else:
+            self.printColor(str(self.date) + '-> Count bugs: ' + str(self.totalCountErrors), self.id)
 
     def traverseSSH(self, sftp, path='.', files=None):
         if files is None:
             files = []
             path = path[:-1]
+            self.errorTraverseSSH = 0
 
         a = sftp.listdir_attr(path)
         for attr in a:
@@ -693,19 +764,26 @@ class Camera():
                 if not os.path.exists(destPath):
                     os.makedirs(destPath)
                 try:
+                    # self.errorTraverseSSH = 1
                     sftp.get(sourcePath + filename, destPath + filename)
                     self.printColor(str(self.date) + '-> [' + filename + ']:: ' + sourcePath + ' >> ' + destPath, self.id)
                     if self.destroyImageOriginal and self.evaluateFile(destPath + filename):
                         sftp.remove(sourcePath + filename)
                 except:
+                    self.errorTraverseSSH = 1
                     self.printColor(str(self.date) + '-> [' + filename + ']:: ERROR Download ' + sourcePath, self.id)
         return files
 
     def traverseFTP(self, ftp, path='.', pathTemp='', files=None):
         if files is None:
             files = []
-            ftp.cwd(path)
-            # pathTemp = path
+            self.errorTraverseFTP = 0
+            try:
+                ftp.cwd(path)
+            except:
+                self.printColor(str(self.date) + '-> the directory ' + path + ' not found.', self.id)
+                return False
+
         for attr in ftp.nlst():
             try:
                 ftp.cwd(attr)
@@ -726,6 +804,7 @@ class Camera():
                     if self.destroyImageOriginal and self.evaluateFile(destPath + filename):
                         ftp.delete(filename)
                 except:
+                    self.errorTraverseFTP = 1
                     if os.path.exists(destPath + filename):
                         os.remove(destPath + filename)
                     self.printColor(str(self.date) + '-> [' + filename + ']:: ERROR Download ' + sourcePath, self.id)
@@ -740,7 +819,7 @@ class Camera():
         for entry in (path for path in ftp.nlst() if path not in ('.', '..')):
             try:
                 ftp.cwd(entry)
-                level[entry] = self.traverseFTP(ftp, depth + 1)
+                level[entry] = self.traverseFTP2(ftp, depth + 1)
                 ftp.cwd('..')
             except ftplib.error_perm:
                 level[entry] = None
@@ -748,6 +827,7 @@ class Camera():
 
     # SINCRONIZA LA ULTIMA IMAGEN OBTENIDA A UN SERVIDOR WEB POR CONEXION HTTP
     def syncUpdateImageWeb(self):
+        self.countErrors = 0
         self.date = datetime.datetime.now()
         self.printColor(str(self.date) + '->' + str(self.cameraName), self.id)
         isRestrict, hourRestrict = self.restrictHour()
@@ -780,9 +860,11 @@ class Camera():
                     self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> Error, vacio [' + pathImages + ']', self.id)
             else:
                 self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> Error, no existe [' + pathImages + ']', self.id)
+        self.rebootByError()
 
     # SINCRONIZA LA ULTIMA IMAGEN OBTENIDA A UN SERVIDOR POR CONEXION SSH O FTP
     def syncUpdateImageLocalToServer(self):
+        self.countErrors = 0
         self.date = datetime.datetime.now()
         self.printColor(str(self.date) + '->' + str(self.cameraName), self.id)
         isRestrict, hourRestrict = self.restrictHour()
@@ -818,6 +900,7 @@ class Camera():
                     self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> Error, vacio [' + pathImages + ']', self.id)
             else:
                 self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> Error, no existe [' + pathImages + ']', self.id)
+        self.rebootByError()
 
     def generetaScale (self):
         try:

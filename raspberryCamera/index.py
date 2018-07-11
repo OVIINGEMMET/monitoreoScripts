@@ -7,8 +7,12 @@ import thread
 import time
 import datetime
 import sys, getopt
+import os
 
 SWITCH = True
+# print("argv was", sys.argv)
+# print("sys.executable was", sys.executable)
+# print("restart now")
 
 
 def help(text):
@@ -29,6 +33,7 @@ def main(argv):
     global storageCamera
     global SECONDS
     global OBJCAMERA
+    # global MAX_ERROR
 
     global configFile
 
@@ -49,6 +54,7 @@ def main(argv):
     SWITCH = True
     DATA = mapConfig.init(configFile)
     SECONDS = DATA['SECONDS']
+    # MAX_ERROR = DATA['MAX_ERROR']
     PATH = DATA['ROOTPATH']
     FONT = DATA['FONT']
     CAMERAS = DATA['CAMERA']
@@ -68,7 +74,7 @@ def taskCamera():
             cam['id'] = idx
             cam['GLOBALPATH'] = PATH
             cam['SWITCH'] = True
-
+            cam['EXEC'] = [sys.executable, ['python'] + sys.argv]
             if cam['type'] == 'camera':
                 cam['FONT'] = FONT
                 cam['PATH_LOGO'] = PATH_LOGO
@@ -94,7 +100,9 @@ def taskCamera():
 
 def threadTask(cam):
     # global SWITCH
+    total_errors = 0
     while cam.SWITCH:
+        # cam.countErrors = cam.countErrors + total_errors
         # MEDIMOS EL TIMEPO DE DESCARGA EN SEGUDOS
         timeInit = datetime.datetime.now()
 
@@ -126,6 +134,7 @@ def threadTask(cam):
         cam.printColor('waiting ' + str(lapso) + ' seconds...')
 
         if SECONDS is not None:
+
             # SI EL TIEMPO DE DESCARGA ES MENOR AL TIEMPO CONFIGURDO EN LA CAMARA
             # SE INICIA UN RETRASO CON EL TIEMPO FALTANTE
             # PARA QUE LA PETICION DE CADA IMAGEN SE REALICE EN EL TIEMPO SOLICITADO
@@ -141,13 +150,20 @@ if __name__ == "__main__":
 
     # SE REQUIERE PARA QUE LOS THREADS FUNCIONEN
     while 1:
-        # pass
         cen = False
+        # error_total = 0
         for idx, cam in enumerate(OBJCAMERA):
-            # print cam.cameraName
             cen = cen or cam.SWITCH
+            # error_total = error_total + cam.totalCountErrors
 
         if cen is True:
+            # if error_total >= int(MAX_ERROR):
+            #     time.sleep(1)
+            #     print('Reboot Now... [ERRORS ' + str(error_total) + '/' + str(MAX_ERROR) + ']')
+            #     # time.sleep(5)
+            #     os.execv(sys.executable, ['python'] + sys.argv)
+            # else:
+            #     pass
             pass
         else:
             sys.exit(1)
