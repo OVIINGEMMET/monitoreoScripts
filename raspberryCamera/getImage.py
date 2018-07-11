@@ -73,6 +73,8 @@ class Camera():
         self.outcomePath = ''
         self.frequency = None
         self.copySpecial = ''
+        self.delay = 1
+        self.analysis = True
 
         self.dateTimeFrom = ''
         self.dateTimeTo = ''
@@ -160,6 +162,37 @@ class Camera():
         self.remotePass = params['remotePass']
         # [INT] PERIODO DE TIEMPO PARA VOLVER A HACER LA PETICION DE UNA IMAGEN
         self.timer = params['timer']
+        self.delay = params['delay']
+        self.analysis = params['analysis']
+        # [ARRAY] RESTRICIONES DE HORA, LOS RANGOS DENTRO DE ESTE ARRAY NO DESCARGARAN IMAGENES
+        # EJEMPLO: [[00:00:00, 04:00:12],[07:51:19, 09:40:41]]
+        self.restrict = params['restrict']
+        # [STRING] URL O SERVICIO PARA SUBIR LA IMAGEN A UN SERVIDOR EXTERNO MEDIANTE PETICION HTTPS POST
+        self.urlUp = params['urlUp']
+        self.destroyImageOriginal = params['destroyImageOriginal']
+        self.SWITCH = params['SWITCH']
+
+    def setSynchronizerServerToLocal(self, params):
+        self.type = params['type']
+        # [STRING] ID DE LA CAMARA
+        self.id = params['id']
+        # [STRING] PATH O RUTA ABSOLUTA DONDE SE ALMACENARA LA CARPETA DE IMAGENES, EJEMPLO home/user1/imagenes/
+        self.GLOBALPATH = params['GLOBALPATH']
+        # [STRING] NOMBRE IDENTIFICADOR DE LA CAMARA
+        self.cameraName = params['cameraName']
+        # [BOOL] HABILITA O DESHABILITA UNA CAMARA
+        self.enable = params['enable']
+        # [STRING] URL O SERVICIO PARA SUBIR LA IMAGEN A UN SERVIDOR EXTERNO MEDIANTE FTP
+        self.remoteConnect = params['remoteConnect']
+        self.remotePathUp = params['remotePathUp']
+        self.remoteHost = params['remoteHost']
+        self.remotePort = int(params['remotePort'])
+        self.remoteUser = params['remoteUser']
+        self.remotePass = params['remotePass']
+        # [INT] PERIODO DE TIEMPO PARA VOLVER A HACER LA PETICION DE UNA IMAGEN
+        self.timer = params['timer']
+        # self.delay = params['delay']
+        # self.analysis = params['analysis']
         # [ARRAY] RESTRICIONES DE HORA, LOS RANGOS DENTRO DE ESTE ARRAY NO DESCARGARAN IMAGENES
         # EJEMPLO: [[00:00:00, 04:00:12],[07:51:19, 09:40:41]]
         self.restrict = params['restrict']
@@ -255,7 +288,6 @@ class Camera():
         self.frequency = params['frequency']
         if self.frequency is not None:
             self.frequency = int(self.frequency)
-
 
     def printParams(self, params):
         pprint(params)
@@ -405,6 +437,7 @@ class Camera():
         try:
             FTP = ftplib.FTP(self.remoteHost)
             FTP.login(self.remoteUser, self.remotePass)
+            FTP.set_pasv(False)
             FTP.cwd('/')
             return True, FTP
         except:
@@ -412,7 +445,6 @@ class Camera():
             return False, None
 
     def sendFTP(self, source, dest, filename, FTP=None):
-
         if FTP is None:
             state, FTP = self.connectFTP()
             if state is False:
@@ -422,14 +454,10 @@ class Camera():
         except:
             FTP.mkd(dest)
             FTP.cwd(dest)
-            self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> FTP uploading Create Directory!', self.id)
+            self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> FTP uploading Create Directory! ' + dest, self.id)
 
-        try:
-            uploadfile = open(source + filename, 'rb')
-            FTP.storbinary('STOR ' + filename, uploadfile)
-        except:
-            self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> FTP uploading Error Saving!!', self.id)
-            return False
+        uploadfile = open(source + filename, 'rb')
+        FTP.storbinary('STOR ' + filename, uploadfile)
 
         if self.destroyImageOriginal:
             os.remove(source + filename)
@@ -481,10 +509,13 @@ class Camera():
         if self.evaluateFile(source + filename):
             if not os.path.exists(dest):
                 os.makedirs(dest)
-                self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> LOCAL Create Directory!', self.id)
+                self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> LOCAL Create Directory! ' + dest, self.id)
             try:
-                os.popen(self.copySpecial + ' ' + source + filename + ' ' +  dest + filename)
-                # shutil.copy2(source + filename, dest + filename)
+                if sys.platform == 'win32':
+                    shutil.copy2(source + filename, dest + filename)
+                else:
+                    os.popen(self.copySpecial + ' ' + source + filename + ' ' + dest + filename)
+
                 self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> LOCAL copied Image[' + filename + ']!!', self.id)
             except:
                 self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> LOCAL Copying Error Saving!!', self.id)
@@ -533,10 +564,8 @@ class Camera():
 
         if self.remoteConnect == 'FTP':
             state, FTP = self.connectFTP()
-            time.sleep(1)
         elif self.remoteConnect == 'SSH':
             state, sftp, t = self.connectSSH()
-            time.sleep(1)
         elif self.remoteConnect == 'LOCAL':
             plataforma = sys.platform
             if plataforma == 'win32':
@@ -544,7 +573,6 @@ class Camera():
             else:
                 self.copySpecial = 'cp'
             state = True
-            time.sleep(3)
         else:
             self.printColor(str(self.date) + '-> Elija un protocolo de conexion permitido [FTP, SSH, LOCAL]', self.id)
             return
@@ -552,15 +580,37 @@ class Camera():
         if state is False:
             return
 
-        for root, subFolder, files in os.walk(self.GLOBALPATH):
-            # print root, subFolder
-            for item in files:
-                if item.endswith('.jpg'):
-                    origin = root + '/'
+        if self.analysis:
+            sources = self.analysisFilesInPath(self.GLOBALPATH)
+            self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> Delay ' + str(self.delay) + ' seconds', self.id)
+            time.sleep(float(self.delay))
+            for dir in sources:
+                origin = self.GLOBALPATH + dir['path']
+                dest = self.remotePathUp + dir['path']
+                for item in dir['files']:
                     if self.urlUp is not None:
                         self.sendWEB(origin, item)
 
-                    if self.remoteConnect is not None:
+                    # print origin, dest, item
+                    if self.remoteConnect == 'FTP':
+                        self.sendFTP(origin, dest, item, FTP=FTP)
+                    elif self.remoteConnect == 'SSH':
+                        self.sendSSH(origin, dest, item, sftp=sftp, t=t)
+                    elif self.remoteConnect == 'LOCAL':
+                        self.sendLOCAL(origin, dest, item)
+                    else:
+                        return
+        else:
+            sources = os.walk(self.GLOBALPATH)
+            self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> Delay ' + str(self.delay) + ' seconds', self.id)
+            time.sleep(float(self.delay))
+            for root, subFolder, files in sources:
+                for item in files:
+                    if item.lower().endswith(VALID_EXTENSIONS):
+                        origin = root + '/'
+                        if self.urlUp is not None:
+                            self.sendWEB(origin, item)
+
                         dest = self.remotePathUp + origin.replace(self.GLOBALPATH, '')
 
                         if self.remoteConnect == 'FTP':
@@ -578,17 +628,28 @@ class Camera():
             sftp.close()
             t.close()
 
-    # def synchronizeLocalToLocal(self):
-    #     self.date = datetime.datetime.now()
-    #     self.printColor(str(self.date) + '->' + str(self.cameraName), self.id)
-    #     # CONTRASTAMOS QUE LA HORA ACTUAL NO SE ENCUENTRE EN EL RANGO DE LAS RESTRICCIONES
-    #     isRestrict, hourRestrict = self.restrictHour()
-    #     if isRestrict:
-    #         self.isWorking = False
-    #         self.printColor(
-    #             str(self.date) + '-> Hora restringida ' + str(hourRestrict[0]) + ' - ' + str(hourRestrict[1]), self.id)
-    #     else:
-    #         self.traverseLocal()
+    def analysisFilesInPath(self, PATH):
+        routes = []
+        total = 0
+        self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> Analyzing [' + PATH + ']... ', self.id)
+        for root, subFolder, files in os.walk(PATH):
+            # print root, subFolder
+            origin = root + '/'
+            directories = origin.replace(PATH, '')
+            listFiles = []
+            for item in sorted(files):
+                if item.lower().endswith(VALID_EXTENSIONS):
+                    listFiles.append(item)
+                    total = total + 1
+                    # print directories, item
+
+            if len(listFiles) > 0:
+                routes.append({
+                    'path': directories,
+                    'files': listFiles
+                })
+        self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> Analyzed! [' + str(total) + ' images]', self.id)
+        return routes
 
     # SINCRONIZA TODOS LOS ARCHIVOS DE DIRECTORIOS Y SUBDIRECTORIOS DE UN SERVIDOR AL LOCAL
     def synchronizeServerToLocal(self):
@@ -768,6 +829,10 @@ class Camera():
 
         if not os.path.exists(self.pathScale):
             self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> la ruta de pathScale ['+ self.pathScale +'] no existe', self.id)
+            return False
+
+        if self.sourcePath == self.outcomePath:
+            self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> El directorio surcePath debe ser distinto al outcomePath', self.id)
             return False
 
         # definimos los rangos de hora permitidos

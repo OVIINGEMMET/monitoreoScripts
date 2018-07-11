@@ -76,7 +76,7 @@ def taskCamera():
             elif cam['type'] == 'sync':
                 a.setSynchronizer(cam)
             elif cam['type'] == 'syncServerToLocal':
-                a.setSynchronizer(cam)
+                a.setSynchronizerServerToLocal(cam)
             elif cam['type'] == 'updateImageWeb':
                 a.setSyncronizerWEB(cam)
             elif cam['type'] == 'updateImageServer':
