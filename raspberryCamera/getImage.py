@@ -476,7 +476,10 @@ class Camera():
         try:
             FTP = ftplib.FTP(self.remoteHost)
             FTP.login(self.remoteUser, self.remotePass)
-            FTP.set_pasv(False)
+            plataforma = sys.platform
+            if plataforma != 'win32':
+                FTP.set_pasv(False)
+
             FTP.cwd('/')
             return True, FTP
         except:
@@ -485,10 +488,13 @@ class Camera():
             return False, None
 
     def sendFTP(self, source, dest, filename, FTP=None):
+        localClose = False
         if FTP is None:
             state, FTP = self.connectFTP()
             if state is False:
                 return False
+            localClose = True
+
         try:
             FTP.cwd(dest)
         except:
@@ -513,6 +519,9 @@ class Camera():
         if self.destroyImageOriginal:
             os.remove(source + filename)
 
+        if localClose:
+            FTP.quit()
+
         return True
 
     def connectSSH(self):
@@ -530,11 +539,12 @@ class Camera():
             return False, None, None
 
     def sendSSH(self, source, dest, filename, sftp=None, t=None):
-
-        if sftp is None or t is None:
+        localClose = False
+        if sftp is None:
             state, sftp, t = self.connectSSH()
             if state is False:
                 return False
+            localClose = True
 
         try:
             sftp.chdir(dest)  # Test if remote_path exists
@@ -554,6 +564,11 @@ class Camera():
 
         if self.destroyImageOriginal:
             os.remove(source + filename)
+
+        if localClose:
+            sftp.close()
+            t.close()
+
         return True
 
     def sendLOCAL(self, source, dest, filename):
@@ -656,13 +671,14 @@ class Camera():
                     else:
                         return
         else:
+
             sources = os.walk(self.GLOBALPATH)
             self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> Delay ' + str(self.delay) + ' seconds', self.id)
             time.sleep(float(self.delay))
             for root, subFolder, files in sources:
                 for item in files:
                     if item.lower().endswith(VALID_EXTENSIONS):
-                        origin = root + '/'
+                        origin = (root + '/').replace('\\', "/")
                         if self.urlUp is not None:
                             self.sendWEB(origin, item)
 
@@ -691,7 +707,7 @@ class Camera():
         self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> Analyzing [' + PATH + ']... ', self.id)
         for root, subFolder, files in os.walk(PATH):
             # print root, subFolder
-            origin = root + '/'
+            origin = (root + '/').replace('\\', "/")
             directories = origin.replace(PATH, '')
             listFiles = []
             for item in sorted(files):
