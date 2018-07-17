@@ -517,7 +517,10 @@ class Camera():
             return False
 
         if self.destroyImageOriginal:
-            os.remove(source + filename)
+            try:
+                os.remove(source + filename)
+            except:
+                pass
 
         if localClose:
             FTP.quit()
@@ -563,7 +566,10 @@ class Camera():
             return False
 
         if self.destroyImageOriginal:
-            os.remove(source + filename)
+            try:
+                os.remove(source + filename)
+            except:
+                pass
 
         if localClose:
             sftp.close()
@@ -590,7 +596,10 @@ class Camera():
                 return False
 
             if self.destroyImageOriginal:
-                os.remove(source + filename)
+                try:
+                    os.remove(source + filename)
+                except:
+                    pass
 
         return True
 
@@ -777,9 +786,9 @@ class Camera():
                 sourcePath = path + '/'
                 destPath = self.GLOBALPATH + sourcePath.replace(self.remotePathUp, '')
 
-                if not os.path.exists(destPath):
-                    os.makedirs(destPath)
                 try:
+                    if not os.path.exists(destPath):
+                        os.makedirs(destPath)
                     # self.errorTraverseSSH = 1
                     sftp.get(sourcePath + filename, destPath + filename)
                     self.printColor(str(self.date) + '-> [' + filename + ']:: ' + sourcePath + ' >> ' + destPath, self.id)
@@ -810,9 +819,10 @@ class Camera():
                 sourcePath = self.remotePathUp + pathTemp
                 destPath = self.GLOBALPATH + pathTemp
 
-                if not os.path.exists(destPath):
-                    os.makedirs(destPath)
                 try:
+                    if not os.path.exists(destPath):
+                        os.makedirs(destPath)
+
                     with open(destPath + filename, "wb") as f:
                         ftp.retrbinary("RETR " + filename, f.write)
                     self.printColor(str(self.date) + '-> [' + filename + ']:: ' + sourcePath + ' >> ' + destPath, self.id)
@@ -871,7 +881,10 @@ class Camera():
                         self.sendWEB(pathUpLocal, filenameLocal)
 
                     if statePaste is True:
-                        os.remove(pathUpLocal + filenameLocal)
+                        try:
+                            os.remove(pathUpLocal + filenameLocal)
+                        except:
+                            self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> Error, Not found [' + self.directory + filename + ']', self.id)
                 else:
                     self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> Error, vacio [' + pathImages + ']', self.id)
             else:
@@ -910,7 +923,10 @@ class Camera():
                             self.sendSSH(pathUpLocal, self.remotePathUp, filenameLocal)
 
                     if statePaste is True:
-                        os.remove(pathUpLocal + filenameLocal)
+                        try:
+                            os.remove(pathUpLocal + filenameLocal)
+                        except:
+                            self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> Error, Not found [' + self.directory + filename + ']', self.id)
 
                 else:
                     self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> Error, vacio [' + pathImages + ']', self.id)
@@ -1152,8 +1168,12 @@ class Camera():
             return False
 
     def evaluateFile(self, filename):
-        size = os.path.getsize(filename)
-        return size > 0
+
+        try:
+            size = os.path.getsize(filename)
+            return size > 0
+        except:
+            return False
 
     def validateHour(self, filename):
         year = filename[-18:-16]
