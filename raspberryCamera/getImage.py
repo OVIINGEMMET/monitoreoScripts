@@ -394,7 +394,7 @@ class Camera():
                 # -----------------------------------------------------------------------------
 
                 # CONDICIONAL: SI CONFIGURAMOS UN URLUP SUBIREMOS LA IMAGEN MEDIANTE UN SERVICIO WEB
-                if cen and self.urlUp is not False:
+                if cen and self.urlUp is not None:
                     try:
                         files = {'file': open(toPathFilename, 'rb')}
                         puts(colored.cyan('     - uploading image...'))
@@ -748,6 +748,7 @@ class Camera():
             if self.remoteConnect == 'FTP':
                 state, FTP = self.connectFTP()
                 if state is False:
+                    self.rebootByError()
                     return
                 self.traverseFTP(FTP, self.remotePathUp)
                 FTP.quit()
@@ -755,6 +756,7 @@ class Camera():
             else:
                 state, sftp, t = self.connectSSH()
                 if state is False:
+                    self.rebootByError()
                     return
                 self.traverseSSH(sftp, self.remotePathUp)
                 sftp.close()
@@ -793,7 +795,10 @@ class Camera():
                     sftp.get(sourcePath + filename, destPath + filename)
                     self.printColor(str(self.date) + '-> [' + filename + ']:: ' + sourcePath + ' >> ' + destPath, self.id)
                     if self.destroyImageOriginal and self.evaluateFile(destPath + filename):
-                        sftp.remove(sourcePath + filename)
+                        try:
+                            sftp.remove(sourcePath + filename)
+                        except:
+                            self.printColor(str(self.date) + '-> ERROR Remove ::The directory require PERMISSION ', self.id)
                 except:
                     self.errorTraverseSSH = 1
                     self.printColor(str(self.date) + '-> [' + filename + ']:: ERROR Download ' + sourcePath, self.id)

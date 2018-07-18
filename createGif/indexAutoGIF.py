@@ -66,8 +66,8 @@ def taskCreateGif():
             print('CAMERA: [' + cam['cameraName'] + ']')
             createGif(cam)
             print('-------------------------------------')
-        else:
-            print('CAMERA: [' + cam['cameraName'] + '] DISABLE!!')
+        # else:
+        #    print('CAMERA: [' + cam['cameraName'] + '] DISABLE!!')
     print
 
 

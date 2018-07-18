@@ -32,7 +32,6 @@ VALID_EXTENSIONS = ('png', 'jpg')
 CURSOR_UP_ONE = '\x1b[1A'
 ERASE_LINE = '\x1b[2K'
 
-
 class CreateGif():
 
     def __init__(self):
@@ -175,12 +174,18 @@ class CreateGif():
             else:
                 localImage = np.asarray(image)
 
+            strMsg = '- Image #' + str(self.count) + ' ' + pathImage
+
             self.count = self.count + 1
             self.images.append(np.asarray(localImage))
-            # print pathImage
-            sys.stdout.write(CURSOR_UP_ONE)
-            sys.stdout.write(ERASE_LINE)
-            print('- Image #' + str(self.count) + ' ' + pathImage)
+            plataforma = sys.platform
+
+            if plataforma != 'win32':
+                sys.stdout.write(CURSOR_UP_ONE)
+                sys.stdout.write(ERASE_LINE)
+                print strMsg
+            else:
+                sys.stdout.write('\r' + strMsg)
 
     def createGif(self):
         print
@@ -199,6 +204,7 @@ class CreateGif():
             filenames = sorted(os.listdir(self.pathImagesSource))
             for filename in filenames:
                 if filename.lower().endswith(VALID_EXTENSIONS):
+                    # print filename
                     # en caso de querer escapar del bucle
                     if not self.exit:
                         self.addImage(filename)
