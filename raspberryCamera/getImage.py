@@ -89,6 +89,7 @@ class Camera():
         self.totalCountErrors = 0
         self.errorTraverseSSH = 0
         self.errorTraverseFTP = 0
+        self.postName = ''
 
         # def __del__(self):
     #     print ("del Camera")
@@ -319,6 +320,7 @@ class Camera():
 
         self.sourcePath = params['sourcePath']
         self.outcomePath = params['outcomePath']
+        self.postName = params['postName']
         self.dateTimeFrom = params['dateTimeFrom']
         self.dateTimeTo = params['dateTimeTo']
         self.SWITCH = params['SWITCH']
@@ -982,7 +984,7 @@ class Camera():
                     for image in listImages:
                         if not self.exit:
                             if self.validateHour(image):
-                                self.filenameUp = image
+                                self.filenameUp = self.generateNewName(image, self.postName)
                                 self.pasteScale(temporalPath, temporalOutPath, image, (self.axisX, self.axisY))
                         else:
                             break
@@ -1214,4 +1216,19 @@ class Camera():
 
         # verificamos que la imagen este entre el rango de tiempo permitido
         return self.timeFrom <= fileTime <= self.timeTo
+
+    def generateNewName(self, filename, postName):
+
+        year = filename[-18:-16]
+        month = filename[-15:-13]
+        day = filename[-13:-11]
+
+        try:
+            hour = filename[-10:-8]
+            minute = filename[-8:-6]
+            second = filename[-6:-4]
+        except:
+            return filename
+
+        return '20' + year + month + day + '_' + hour + minute + second + '.' + postName + '.jpg'
 
