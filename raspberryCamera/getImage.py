@@ -489,13 +489,19 @@ class Camera():
             self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> FTP Error Connection!!', self.id)
             return False, None
 
-    def sendFTP(self, source, dest, filename, FTP=None):
+    def sendFTP(self, source, dest, fileSource, fileDest=None, FTP=None):
         localClose = False
         if FTP is None:
             state, FTP = self.connectFTP()
             if state is False:
                 return False
             localClose = True
+
+        fnameSource = fileSource
+        if fileDest is None:
+            fnameDest = fileSource
+        else:
+            fnameDest = fileDest
 
         try:
             FTP.cwd(dest)
@@ -510,17 +516,17 @@ class Camera():
                 return False
 
         try:
-            uploadfile = open(source + filename, 'rb')
-            FTP.storbinary('STOR ' + filename, uploadfile)
-            self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> FTP uploaded Image[' + filename + ']!!',self.id)
+            uploadfile = open(source + fnameSource, 'rb')
+            FTP.storbinary('STOR ' + fnameDest, uploadfile)
+            self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> FTP uploaded Image[' + fileSource + ']!!',self.id)
         except:
             self.countErrors = self.countErrors + 1
-            self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> FTP uploading Error Saving[' + filename + ']!!', self.id)
+            self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> FTP uploading Error Saving[' + fileSource + ']!!', self.id)
             return False
 
         if self.destroyImageOriginal:
             try:
-                os.remove(source + filename)
+                os.remove(source + fileSource)
             except:
                 pass
 
@@ -543,7 +549,7 @@ class Camera():
             self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> SSH Error Connection!!', self.id)
             return False, None, None
 
-    def sendSSH(self, source, dest, filename, sftp=None, t=None):
+    def sendSSH(self, source, dest, fileSource, fileDest=None, sftp=None, t=None):
         localClose = False
         if sftp is None:
             state, sftp, t = self.connectSSH()
@@ -559,17 +565,23 @@ class Camera():
             sftp.chdir(dest)
             self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> SSH uploading Create Directory!', self.id)
 
+        fnameSource = fileSource
+        if fileDest is None:
+            fnameDest = fileSource
+        else:
+            fnameDest = fileDest
+
         try:
-            sftp.put(source + filename, filename)
-            self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> SSH uploaded Image[' + filename + ']!!',self.id)
+            sftp.put(source + fnameSource, fnameDest)
+            self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> SSH uploaded Image[' + fnameSource + ']!!',self.id)
         except:
             self.countErrors = self.countErrors + 1
-            self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> SSH uploading Error Saving[' + filename + ']!!', self.id)
+            self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> SSH uploading Error Saving[' + fnameSource + ']!!', self.id)
             return False
 
         if self.destroyImageOriginal:
             try:
-                os.remove(source + filename)
+                os.remove(source + fnameSource)
             except:
                 pass
 
@@ -917,20 +929,21 @@ class Camera():
 
                     if self.watermarkScale:
                         statePaste, pathUpLocal, filenameLocal = self.pasteScale(pathImages, self.GLOBALPATH + self.directory, filename, (self.axisX, self.axisY))
-
+                        filenameRemote = filenameLocal
                     else:
                         statePaste = None
                         pathUpLocal = pathImages
+                        filenameLocal = filename
                         if self.filenameUp is None or not self.filenameUp.lower().endswith(VALID_EXTENSIONS):
-                            filenameLocal = filename
+                            filenameRemote = filename
                         else:
-                            filenameLocal = self.filenameUp
+                            filenameRemote = self.filenameUp
 
                     if self.watermarkScale is False or statePaste is True:
                         if self.remoteConnect == 'FTP':
-                            self.sendFTP(pathUpLocal, self.remotePathUp, filenameLocal)
+                            self.sendFTP(pathUpLocal, self.remotePathUp, filenameLocal, filenameRemote)
                         else:
-                            self.sendSSH(pathUpLocal, self.remotePathUp, filenameLocal)
+                            self.sendSSH(pathUpLocal, self.remotePathUp, filenameLocal, filenameRemote)
 
                     if statePaste is True:
                         try:
