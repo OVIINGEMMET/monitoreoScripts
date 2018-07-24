@@ -921,7 +921,10 @@ class Camera():
                     else:
                         statePaste = None
                         pathUpLocal = pathImages
-                        filenameLocal = filename
+                        if self.filenameUp is None or not self.filenameUp.lower().endswith(VALID_EXTENSIONS):
+                            filenameLocal = filename
+                        else:
+                            filenameLocal = self.filenameUp
 
                     if self.watermarkScale is False or statePaste is True:
                         if self.remoteConnect == 'FTP':
