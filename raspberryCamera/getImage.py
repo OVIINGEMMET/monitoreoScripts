@@ -78,6 +78,8 @@ class Camera():
         self.analysis = True
         self.rebootError = None
 
+        self.isRange = False
+        self.days = 1
         self.dateTimeFrom = ''
         self.dateTimeTo = ''
         self.timeFrom = ''
@@ -321,6 +323,8 @@ class Camera():
         self.sourcePath = params['sourcePath']
         self.outcomePath = params['outcomePath']
         self.postName = params['postName']
+        self.isRange = params['isRange']
+        self.days = params['days']
         self.dateTimeFrom = params['dateTimeFrom']
         self.dateTimeTo = params['dateTimeTo']
         self.SWITCH = params['SWITCH']
@@ -958,9 +962,17 @@ class Camera():
         self.rebootByError()
 
     def generetaScale (self):
+        self.date = datetime.datetime.now()
         try:
-            dFrom = datetime.datetime.strptime(self.dateTimeFrom, '%Y-%m-%dT%H:%M:%S')
-            dTo = datetime.datetime.strptime(self.dateTimeTo, '%Y-%m-%dT%H:%M:%S')
+            if self.isRange:
+                dFrom = datetime.datetime.strptime(self.dateTimeFrom, '%Y-%m-%dT%H:%M:%S')
+                dTo = datetime.datetime.strptime(self.dateTimeTo, '%Y-%m-%dT%H:%M:%S')
+            else:
+                dTo = datetime.datetime.now().replace(hour=19, minute=0, second=0)
+                dFrom = dTo - datetime.timedelta(days=int(self.days))
+                dFrom = dFrom.replace(hour=5, minute=0, second=0)
+                # dFrom = datetime.datetime.strptime(self.dateTimeFrom, '%Y-%m-%dT%H:%M:%S')
+                # dTo = datetime.datetime.strptime(self.dateTimeTo, '%Y-%m-%dT%H:%M:%S')
         except:
             self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> Error, se debe respetar el formato de tiempo [YYYY-MM-DDTHH:MM:SS]', self.id)
             return False
