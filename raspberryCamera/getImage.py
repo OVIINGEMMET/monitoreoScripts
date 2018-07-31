@@ -965,12 +965,19 @@ class Camera():
         self.date = datetime.datetime.now()
         try:
             if self.isRange:
+                # if int(self.days) < 0:
+                #     self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> Mode isRange TRUE require DAYS >=0', self.id)
+                #     return False
+
                 dFrom = datetime.datetime.strptime(self.dateTimeFrom, '%Y-%m-%dT%H:%M:%S')
                 dTo = datetime.datetime.strptime(self.dateTimeTo, '%Y-%m-%dT%H:%M:%S')
             else:
-                dTo = datetime.datetime.now().replace(hour=19, minute=0, second=0)
-                dFrom = dTo - datetime.timedelta(days=int(self.days))
-                dFrom = dFrom.replace(hour=5, minute=0, second=0)
+                d1 = datetime.datetime.strptime(self.dateTimeFrom, '%Y-%m-%dT%H:%M:%S')
+                d2 = datetime.datetime.strptime(self.dateTimeTo, '%Y-%m-%dT%H:%M:%S')
+
+                dTo = datetime.datetime.now().replace(hour=d2.hour, minute=d2.minute, second=d2.second)
+                dFrom = dTo - datetime.timedelta(days=abs(int(self.days)))
+                dFrom = dFrom.replace(hour=d1.hour, minute=d1.minute, second=d1.second)
                 # dFrom = datetime.datetime.strptime(self.dateTimeFrom, '%Y-%m-%dT%H:%M:%S')
                 # dTo = datetime.datetime.strptime(self.dateTimeTo, '%Y-%m-%dT%H:%M:%S')
         except:
@@ -993,7 +1000,11 @@ class Camera():
             self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> Error, DatetimeFrom debe ser un fecha anterior DatetimeTo', self.id)
             return False
 
-        diffDays = (dTo - dFrom).days
+        if self.isRange is False and int(self.days) < 0:
+            diffDays = 0
+        else:
+            diffDays = (dTo - dFrom).days
+
         for i in range(diffDays + 1):
             self.exit = False
             self.lapseTime = 0
