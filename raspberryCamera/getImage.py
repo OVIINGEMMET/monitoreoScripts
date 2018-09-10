@@ -7,7 +7,6 @@ import os
 import sys
 from pprint import pprint
 import ftplib
-import paramiko
 import stat
 # from collections import defaultdict
 # from PIL import Image
@@ -16,7 +15,20 @@ import requests
 import time
 import shutil
 from requests.auth import HTTPDigestAuth
-from clint.textui import progress, colored, puts
+
+try:
+    import paramikoF
+    PARAMIKOLOAD = True
+except:
+    print 'Not import paramiko - SSH connection'
+    PARAMIKOLOAD = False
+
+try:
+    from clint.textui import progress, colored, puts
+    COLORED = True
+except:
+    print 'Not from clint.textui import progress, colored, puts'
+    COLORED = False
 # from config import *
 
 SYNC = False
@@ -337,7 +349,10 @@ class Camera():
         pprint(params)
 
     def printColor(self, msg, index=0):
-        idx = int(int(self.id) % 7)
+        if COLORED:
+            idx = int(int(self.id) % 7)
+        else:
+            idx = None
         preText = '   -[' + str(self.id) + ']'
         postText = ''
         colors = ['magenta', 'cyan', 'green', 'yellow', 'blue', 'red', 'white']
@@ -361,6 +376,8 @@ class Camera():
 
         elif idx == 6:
             print(colored.white(preText + msg + postText))
+        else:
+            print (preText + msg + postText)
 
     def getImage(self):
 
@@ -540,6 +557,12 @@ class Camera():
         return True
 
     def connectSSH(self):
+
+        if PARAMIKOLOAD is False:
+            self.printColor(str(self.date) + '->' + str(
+                self.cameraName) + '-> SSH Connect: ERROR no IMPORT PARAMIKO', self.id)
+            sys.exit(0)
+
         self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> SSH Connect:' + self.remoteUser + '@' + self.remoteHost + ':' + str(self.remotePort), self.id)
         client = paramiko.SSHClient()
         client.load_system_host_keys()
