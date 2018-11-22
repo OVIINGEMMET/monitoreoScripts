@@ -17,7 +17,7 @@ import shutil
 from requests.auth import HTTPDigestAuth
 
 try:
-    import paramikoF
+    import paramiko
     PARAMIKOLOAD = True
 except:
     print 'Not import paramiko - SSH connection'
@@ -397,7 +397,16 @@ class Camera():
                 self.generateDatePath()
                 toPath = self.GLOBALPATH + str(self.directory) + self.filenamePath
                 if not os.path.exists(toPath):
+                    try:
+                        os.makedirs(toPath)
+                    except:
+                        self.printColor(str(self.date) + '->' + str(
+                            self.cameraName) + '-> LOCAL Create Directory Error [' + dest + ']!!', self.id)
+                        return False
                     os.makedirs(toPath)
+
+
+
                 toPathFilename = toPath + str(self.filename)
                 puts(colored.yellow('     - to path >> ' + toPathFilename))
                 # ------------------------------------------------
@@ -622,7 +631,11 @@ class Camera():
 
         if self.evaluateFile(source + filename):
             if not os.path.exists(dest):
-                os.makedirs(dest)
+                try:
+                    os.makedirs(dest)
+                except:
+                    self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> LOCAL Create Directory Error [' + dest + ']!!', self.id)
+                    return False
                 self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> LOCAL Create Directory! ' + dest, self.id)
             try:
                 if sys.platform == 'win32':
