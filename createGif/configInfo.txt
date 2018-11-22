@@ -1,0 +1,36 @@
+# Ruta local donde se generara el gif solicitado
+PATH_ORIGIN_GIF_LOCAL:=/home/pc17/Desktop/rikardocorp/Final/
+# Ruta del servidor remoto donde se copiara el gif creado, mediante conexion SSH
+PATH_DEST_GIF_SERVER:=/var/www/html/panelview/img/gif/
+# No es importante
+SECONDS_FRECUENCY_CREATE:=None
+
+<<CAMERA
+enable:=True # Proceso Activo/Inactivo
+cameraName:=Sabancaya # Nombre referencia del proceso
+# Datos de conexion SSH
+hostname:=10.102.131.52
+username:=root
+password:=rootubinas2016
+port:=22 # siempre debe tener un valor numerico
+#------------------------------------------------------
+uploadImage:=True # True: Utiliza la configuracion de arriba para hacer la conexion, False: no considera los campos de arriba
+pathImagesSource:=/home/pc17/monitoreo/Visual/original/sabancaya/ # Directorio donde se encuentran las imagenes para generar el GIF
+isPathDate:=True # No modificar
+isDirectory:=True # No modificar
+minImagesByWork:=50 # cantidad minima de imagenes requeridas para generar el gif
+typeOutFile:=gif # Tipo de formato de salida 'gif/avi/mp4/ogg'
+gifName:=sabancaya # Nombre delarchivo generado
+scale:=0.8 # Valor entre [0.0,1.0] para reducir el tamaño de las imagenes
+optimize:=False # Optimiza el peso de las imagenes
+quality:=70 # Valor entre [0,100] que define la calidad de las imagenes
+frecuency:=20 # Frencia de tiempo que utilizara para elegir las imagenes utiizadas para gener el GIF
+duration:=0.24 # Valor entre [0.01-inf] es el tiempo de retardo que se utilizara entre cada frame de imagen,
+fps:=5 # Fotogramas por segundo, solo sirve para 'typeOutFile=avi/mp4/ogg'
+gifNameBySend:=sabancaya # nombre que se utilizara para guardar el gif generado en el servidor remoto (conexion SSH)
+automatic:=True # True: genera gif automaticos de imagenes generadas desde l hora actual y dos horas atras, False: utiliza los valores de 'date' y 'rangeTime'
+date:=21/11/2018 # Fecha para generar el gif
+rangeTime:=10:00:00-11:15:00 # rango de tiempo (tomar cuenta que si el rango es algo odria considerar un gran cantidad de imagenes por lo tanto el SCRIPT podria fallar por falta de memoria para procesar la peticion)
+restrict:=00:00:00-5:00:00|19:00:00-23:59:59 # restriccion de horas
+deleteOriginalGif:=False # elimina el gif o video original que se guarda en la ruta de PATH_ORIGIN_GIF_LOCAL
+>>

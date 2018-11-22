@@ -356,9 +356,13 @@ class Camera():
 
             # EVALUAMOS SI LA IMAGEN SE DESCARGO CON EXITO
             if r.status_code == 200:
-                localFile = open(toPathFilename, 'wb')
-                localFile.write(r.content)
-                localFile.close()
+                try:
+                    localFile = open(toPathFilename, 'wb')
+                    localFile.write(r.content)
+                    localFile.close()
+                except:
+                    self.printColor(str(self.date) + '-> Error directory: necesita permisos en el directorio!!', self.id)
+
                 if thread:
                     self.printColor(str(self.date) + '->' + str(self.cameraName) + '-> saved image!', self.id)
                 else:

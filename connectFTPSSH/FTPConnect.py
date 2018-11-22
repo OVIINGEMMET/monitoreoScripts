@@ -226,7 +226,7 @@ def listFiles(FTP, PRemote, PLocal, Fdays):
             else:
                 strFdays = str(Fdays)
 
-            FTP.retrlines('LIST *' + strFdays + 'a*' + EXTENSION, sources.append)
+            FTP.retrlines('LIST *' + strFdays + 'a*' + EXTENSION + '*', sources.append)
             print('#Acces: ruta ' + str(PRemote) + ' :')
             for line in sources:
                 file = line.split(' ')[-1]

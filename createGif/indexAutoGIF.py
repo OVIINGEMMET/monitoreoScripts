@@ -4,8 +4,15 @@ import datetime
 import mapConfig
 import threading
 import time
-import sys
+import sys, getopt
 import os
+
+
+def help(text):
+    print (text)
+    print ('      index.py -h <help>')
+    print ('               -c <filename config.ini in principal PATH>')
+    print
 
 
 def main(argv):
@@ -15,7 +22,23 @@ def main(argv):
     global SECONDS_FRECUENCY_CREATE
     global CAMERAS
 
-    DATA = mapConfig.init()
+    global configFile
+
+    configFile = ''
+
+    try:
+        opts, args = getopt.getopt(argv, 'hc:', ['config='])
+    except getopt.GetoptError:
+        sys.exit(2)
+
+    for opt, arg in opts:
+        if opt == '-h':
+            help('Help:')
+            sys.exit()
+        elif opt in ('-c', '--config'):
+            configFile = arg
+
+    DATA = mapConfig.init(configFile)
     PATH_ORIGIN_GIF_LOCAL = DATA['PATH_ORIGIN_GIF_LOCAL']
     PATH_DEST_GIF_SERVER = DATA['PATH_DEST_GIF_SERVER']
     SECONDS_FRECUENCY_CREATE = DATA['SECONDS_FRECUENCY_CREATE']
@@ -60,7 +83,12 @@ def taskCreateGif():
         if cam['enable']:
             cam['id'] = idx
             cam['path'] = PATH_ORIGIN_GIF_LOCAL
-            cam['time'] = [timeFrom, timeTo]
+            if cam['automatic']:
+                cam['time'] = [timeFrom, timeTo]
+            else:
+                auxTime = cam['rangeTime'].split('-')
+                cam['time'] = [auxTime[0], auxTime[1]]
+
             cam['PATH_DEST_GIF_SERVER'] = PATH_DEST_GIF_SERVER
 
             print('CAMERA: [' + cam['cameraName'] + ']')

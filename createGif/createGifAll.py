@@ -32,6 +32,7 @@ VALID_EXTENSIONS = ('png', 'jpg')
 CURSOR_UP_ONE = '\x1b[1A'
 ERASE_LINE = '\x1b[2K'
 
+
 class CreateGif():
 
     def __init__(self):
@@ -42,6 +43,8 @@ class CreateGif():
         self.scale = 0.5
         self.quality = 80
         self.duration = 0.5
+        self.today = ''
+        self.automatic = True
         self.path = ''
         self.gifPath = ''
         self.optimize = False
@@ -49,6 +52,7 @@ class CreateGif():
         self.temporal = '_temp/'
         self.images = []
         self.totalImages = 0
+        self.date = ''
         self.time = []
         self.count = 0
         self.timeFrom = None
@@ -77,6 +81,8 @@ class CreateGif():
     def setParams(self, params):
         self.id = params['id']
         self.path = params['path']
+        self.automatic = params['automatic']
+        self.date = params['date']
         self.time = params['time']
         self.cameraName = params['cameraName']
         self.hostname = params['hostname']
@@ -123,19 +129,23 @@ class CreateGif():
 
         # GENERAMOS LA ESTRUCTURA DE CARPETAS ANIDADAS POR ANIO/MES/DIA/
         self.today = datetime.datetime.now()
-        today = self.today
-        if int(today.day) < 10:
-            dia = '0' + str(today.day)
-        else:
-            dia = str(today.day)
+        if self.automatic:
+            today = self.today
+            if int(today.day) < 10:
+                dia = '0' + str(today.day)
+            else:
+                dia = str(today.day)
 
-        if int(today.month) < 10:
-            mes = '0' + str(today.month)
-        else:
-            mes = str(today.month)
+            if int(today.month) < 10:
+                mes = '0' + str(today.month)
+            else:
+                mes = str(today.month)
 
-        year = today.year
-        return str(year) + '/' + str(mes) + '/' + str(dia) + '/'
+            year = today.year
+            return str(year) + '/' + str(mes) + '/' + str(dia) + '/'
+        else:
+            date = self.date.split('/')
+            return date[2] + '/' + date[1] + '/' + date[0] + '/'
 
     # Genera el tamanio a escala de la imagen en base al dato de entrada 'scale'
     def getResizeParams(self):
