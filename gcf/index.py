@@ -1,17 +1,12 @@
 import datetime
 import getopt
-import os
 import sys
-# from .configStation import newStation
 import time
-from concurrent.futures import thread
 
 import _thread
-from src import configStation
-from src import copyGCF
-import warnings
+import configStation
+import copyGCF
 
-warnings.simplefilter("ignore", category=PendingDeprecationWarning)
 SWITCH = True
 # print("argv was", sys.argv)
 # print("sys.executable was", sys.executable)
@@ -104,58 +99,46 @@ def threadTask(stn):
         else:
             lapso = 0
 
-        print('waiting ' + str(lapso) + ' seconds...')
+        stn.printColor('waiting ' + str(lapso) + ' seconds...', 'Lapso')
 
         if SECONDS is not None:
             # SI EL TIEMPO DE DESCARGA ES MENOR AL TIEMPO CONFIGURDO EN LA CAMARA
             # SE INICIA UN RETRASO CON EL TIEMPO FALTANTE
             # PARA QUE LA PETICION DE CADA IMAGEN SE REALICE EN EL TIEMPO SOLICITADO
+            print("TIME SLEEP???")
             time.sleep(lapso)
         else:
+            print("SWTICH???")
             stn.SWITCH = False
 
 
 #
 if __name__ == '__main__':
-    try:
-        ## your code, typically one function call
-        main(sys.argv[1:])
+    main(sys.argv[1:])
 
-        # SE INICIA LA TAREA
+    # SE INICIA LA TAREA
 
-        taskStation()
+    taskStation()
 
-        # SE REQUIERE PARA QUE LOS THREADS FUNCIONEN
-        while 1:
-            cen = False
-            # error_total = 0
-            for idx, stn in enumerate(OBJSTATION):
-                cen = cen or stn.SWITCH
-                # error_total = error_total + cam.totalCountErrors
+    # SE REQUIERE PARA QUE LOS THREADS FUNCIONEN
+    while 1:
+        cen = False
+        # error_total = 0
+        for idx, stn in enumerate(OBJSTATION):
+            cen = cen or stn.SWITCH
+            # error_total = error_total + cam.totalCountErrors
 
-            if cen is True:
-                # if error_total >= int(MAX_ERROR):
-                #     time.sleep(1)
-                #     print('Reboot Now... [ERRORS ' + str(error_total) + '/' + str(MAX_ERROR) + ']')
-                #     # time.sleep(5)
-                #     os.execv(sys.executable, ['python'] + sys.argv)
-                # else:
-                #     pass
-                pass
-            else:
-                time.sleep(30)
-                sys.exit(1)
-    except BaseException:
-        import sys
+        if cen is True:
+            # if error_total >= int(MAX_ERROR):
+            #     time.sleep(1)
+            #     print('Reboot Now... [ERRORS ' + str(error_total) + '/' + str(MAX_ERROR) + ']')
+            #     # time.sleep(5)
+            #     os.execv(sys.executable, ['python'] + sys.argv)
+            # else:
+            #     pass
 
-        print(sys.exc_info()[0])
-        import traceback
 
-        print(traceback.format_exc())
-        print("Press Enter to continue ...")
-        input()
-
-    finally:
-        print("Press Enter to continue ...")
-        input()
-
+            pass
+        else:
+            print("llega aqui???")
+            sys.exit(1)

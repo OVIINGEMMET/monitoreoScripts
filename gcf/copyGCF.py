@@ -1,12 +1,12 @@
-import datetime
+from datetime import datetime
 import fnmatch
 import os
+import platform
 import shutil
 from pprint import pprint
 from obspy import read
-import colorama
-from colorama import Fore, Style
-from src import colors
+import colors
+
 
 # try:
 #     import paramiko
@@ -16,13 +16,13 @@ from src import colors
 #     print('Not import paramiko - SSH connection')
 #     PARAMIKOLOAD = False
 
-try:
-    from clint.textui import progress, colored, puts
-
-    COLORED = True
-except:
-    print('Not from clint.textui import progress, colored, puts')
-    COLORED = False
+# try:
+#     from clint.textui import progress, colored, puts
+#
+#     COLORED = True
+# except:
+#     print('Not from clint.textui import progress, colored, puts')
+#     COLORED = False
 
 
 # SABANCAYA = "Sabancaya/"
@@ -46,7 +46,8 @@ class Station:
     def __init__(self):
         self.type = 'station'
         self.id = 0
-        self.stationName = ''
+        self.stationNameFrom = ''
+        self.stationNameTo = ''
         self.pathFrom = ''
         self.pathToGCF = ''
         self.pathToSAC = ''
@@ -62,14 +63,15 @@ class Station:
         self.EXEC = [None, None]
 
     def setParametersToCopyGCF(self, params):
-        print('parameters')
-        print(params)
+        # print('parameters')
+        # print(params)
 
         self.type = params['type']
 
         self.id = params['id']
 
-        self.stationName = params['stationName']
+        self.stationNameFrom = params['stationNameFrom']
+        self.stationNameTo = params['stationNameTo']
 
         self.volcano = params['volcano']
 
@@ -102,44 +104,46 @@ class Station:
         date = allparts[-3] + '/' + allparts[-2] + '/' + allparts[-1] + '/'
         return date
 
-    def changeFileName(self, file):
-        if file.endswith('*.gcf'):
-            changeName = file.split('.')
-            if len(changeName) == 4:
-                # print(changeName)
-                date, station, position, extencion = map(str, changeName)
-                if len(position) == 1:
-                    newName = date + '.' + station + '.' + position + '.' + extencion
-                    # print("newName 1")
-                    # print(newName)
-                    # return newName
-                else:
-                    newPos = position[len(position) - 2]
-                    # print("si tiene mas de un caracter")
-                    # print(str(newPos))
-                    newName = date + '.' + station + '.' + str(newPos) + '.' + extencion
-                    # print("newName--------------------------------- +1")
-                    # print(newName)
-                    # return newName
+    def creation_date(self, path_to_file):
+        """
+        Try to get the date that a file was created, falling back to when it was
+        last modified if that isn't possible.
+        See http://stackoverflow.com/a/39501288/1709587 for explanation.
+        """
+        now = datetime.now().strftime('%Y-%m-%d %H')
+        if platform.system() == 'Windows':
+            createdHour = datetime.fromtimestamp(os.path.getctime(path_to_file)).strftime('%Y-%m-%d %H')
 
-            else:
-                newName = file
-                # print(newfileName)
-
-                # return newfileName
         else:
-            newName = file
-        return newName
+            stat = os.stat(path_to_file)
+            try:
+                createdHour = stat.st_birthtime.strftime('%Y-%m-%d %H')
+            except AttributeError:
+                # We're probably on Linux. No easy way to get creation dates here,
+                # so we'll settle for when its content was last modified.
+                createdHour = stat.st_mtime.strftime('%Y-%m-%d %H')
+
+        if createdHour < now:
+            return True
+        else:
+            return False
 
     def getNewFileName(self, file):
         changeName = file.split('.')
         if len(changeName) == 4:
             date, station, position, extencion = map(str, changeName)
+            if station == "cf59":
+                newStationName = "sab10"
+            elif station == "9f59":
+                newStationName = "ubn02"
+            else:
+                newStationName = station
+
             if len(position) == 1:
-                newName = date + '.' + station + '.' + position + '.' + extencion
+                newName = date + '.' + newStationName + '.' + position + '.' + extencion
             else:
                 newPos = position[len(position) - 2]
-                newName = date + '.' + station + '.' + str(newPos) + '.' + extencion
+                newName = date + '.' + newStationName + '.' + str(newPos) + '.' + extencion
         else:
             newName = file
         return newName
@@ -149,65 +153,84 @@ class Station:
         if self.enable:
             self.isWorking = True
             # getDate = self.generateDatePath()
-            remote_pathFrom = self.pathFrom + self.volcano + '/' + self.stationName + '/'
+            remote_pathFrom = self.pathFrom + self.stationNameFrom + '/'
 
             originPathFiles = [os.path.join(dirpath, f)
                                for dirpath, dirnames, files in os.walk(remote_pathFrom)
                                for f in fnmatch.filter(files, '*.*')]
             for filesdir in originPathFiles:
-                a = os.path.split(filesdir)
-                pathFileOrigin = a[0]
-                originalFileName = a[1]
-                pathFileDestiny = self.pathFileDestination(pathFileOrigin)
-                newfileName = self.getNewFileName(originalFileName)
-                remote_pathToSAC = self.pathToSAC + self.volcano + '/' + self.stationName + '/' + pathFileDestiny
-                remote_pathToGCF = self.pathToGCF + self.volcano + '/' + self.stationName + '/' + pathFileDestiny
-                # print('imprimiendo remote_pathFrom')
-                # print(remote_pathFrom)
-                # print('imprimiendo remote_pathToSAC')
-                # print(remote_pathToSAC)
-                # print('imprimiendo remote_pathToGCF')
-                # print(remote_pathToGCF)
-                self.printColor('---------------------- NEW FILE: ' + self.volcano + ' -----------------------------',
-                                self.volcano)
-                if fnmatch.fnmatch(newfileName, "*.gcf"):
-                    # if self.file_exists(remote_path+'/') or retry == 0:
-                    self.printColor(
-                        'GCF--TO--SAC from: ' + pathFileOrigin + '/' + originalFileName + ' -------->>>>>> To: ' + remote_pathToSAC +
-                        os.path.splitext(newfileName)[0] + '.sac', self.volcano)
-                    if not os.path.exists(remote_pathToSAC):
-                        os.makedirs(remote_pathToSAC)
-                        st = read(pathFileOrigin + '/' + originalFileName)
-                        st.write(remote_pathToSAC + os.path.splitext(newfileName)[0] + '.sac', format='SAC')
-                    else:
-                        st = read(pathFileOrigin + '/' + originalFileName)
-                        st.write(remote_pathToSAC + os.path.splitext(newfileName)[0] + '.sac', format='SAC')
-                    self.printColor(
-                        'COPY--GCF from: ' + pathFileOrigin + '/' + originalFileName + '-------->>>>>> To: ' + remote_pathToGCF + newfileName,
-                        self.volcano)
+                copying = self.creation_date(filesdir)
+                if copying:
+                    a = os.path.split(filesdir)
+                    pathFileOrigin = a[0]
+                    originalFileName = a[1]
+                    pathFileDestiny = self.pathFileDestination(pathFileOrigin)
+                    newfileName = self.getNewFileName(originalFileName)
+                    remote_pathToSAC = self.pathToSAC + self.volcano + '/' + self.stationNameTo + '/' + pathFileDestiny
+                    remote_pathToGCF = self.pathToGCF + self.volcano + '/' + self.stationNameTo + '/' + pathFileDestiny
+                    # print('imprimiendo remote_pathFrom')
+                    # print(remote_pathFrom)
+                    # print('imprimiendo remote_pathToSAC')
+                    # print(remote_pathToSAC)
+                    # print('imprimiendo remote_pathToGCF')
+                    # print(remote_pathToGCF)
+                    try:
 
-                    if not os.path.exists(remote_pathToGCF):
-                        os.makedirs(remote_pathToGCF)
-                        shutil.copy2(pathFileOrigin + '/' + originalFileName,
-                                     remote_pathToGCF + newfileName)
-                    else:
-                        shutil.copy2(pathFileOrigin + '/' + originalFileName,
-                                     remote_pathToGCF + newfileName)
+                        if fnmatch.fnmatch(newfileName, "*.gcf"):
+                            # if self.file_exists(remote_path+'/') or retry == 0:
+
+                            if not os.path.exists(remote_pathToSAC):
+                                os.makedirs(remote_pathToSAC)
+                                st = read(pathFileOrigin + '/' + originalFileName)
+                                st.write(remote_pathToSAC + os.path.splitext(newfileName)[0] + '.sac', format='SAC')
+                                self.printColor(str(self.volcano + '-' + self.stationNameFrom +
+                                                    ': GCF--TO--SAC from: ' + pathFileOrigin + '/' + originalFileName + ' --->>> To: ' + remote_pathToSAC +
+                                                    os.path.splitext(newfileName)[0] + '.sac'), self.volcano)
+                            else:
+                                st = read(pathFileOrigin + '/' + originalFileName)
+                                st.write(remote_pathToSAC + os.path.splitext(newfileName)[0] + '.sac', format='SAC')
+                                self.printColor(str(self.volcano + '-' + self.stationNameFrom +
+                                                    ': GCF--TO--SAC from: ' + pathFileOrigin + '/' + originalFileName + ' --->>> To: ' + remote_pathToSAC +
+                                                    os.path.splitext(newfileName)[0] + '.sac'), self.volcano)
+
+                            if not os.path.exists(remote_pathToGCF):
+                                os.makedirs(remote_pathToGCF)
+                                shutil.move(pathFileOrigin + '/' + originalFileName,
+                                            remote_pathToGCF + newfileName)
+                                self.printColor(str(self.volcano + '-' + self.stationNameFrom +
+                                                    ': COPY--GCF from: ' + pathFileOrigin + '/' + originalFileName + ' --->>> To: ' + remote_pathToGCF + newfileName),
+                                                self.volcano)
+                            else:
+                                shutil.move(pathFileOrigin + '/' + originalFileName,
+                                            remote_pathToGCF + newfileName)
+                                self.printColor(str(self.volcano + '-' + self.stationNameFrom +
+                                                    ': COPY--GCF from: ' + pathFileOrigin + '/' + originalFileName + ' --->>> To: ' + remote_pathToGCF + newfileName),
+                                                self.volcano)
+                        else:
+
+                            if not os.path.exists(remote_pathToGCF):
+                                os.makedirs(remote_pathToGCF)
+                                shutil.move(pathFileOrigin + '/' + originalFileName,
+                                            remote_pathToGCF + originalFileName)
+                                self.printColor(str(self.volcano + '-' + self.stationNameFrom +
+                                                    ': COPY--TXT from: ' + pathFileOrigin + '/' + originalFileName + ' --->>> To: ' + remote_pathToGCF + originalFileName),
+                                                self.volcano)
+                            else:
+                                shutil.move(pathFileOrigin + '/' + originalFileName,
+                                            remote_pathToGCF + originalFileName)
+                                self.printColor(str(self.volcano + '-' + self.stationNameFrom +
+                                                    ': COPY--TXT from: ' + pathFileOrigin + '/' + originalFileName + ' --->>> To: ' + remote_pathToGCF + originalFileName),
+                                                self.volcano)
+                    except WindowsError:
+                        # self.printColor("No se puede realizar esta acción, debido a que el archivo esta siendo usado por otro proceso", "Inuse")
+                        pass
                 else:
-                    print(
-                        'COPY--TXT from: ' + pathFileOrigin + '/' + originalFileName + '-------->>>>>> To: ' + remote_pathToGCF + originalFileName,
-                        self.volcano)
-
-                    if not os.path.exists(remote_pathToGCF):
-                        os.makedirs(remote_pathToGCF)
-                        shutil.copy2(pathFileOrigin + '/' + originalFileName,
-                                     remote_pathToGCF + originalFileName)
-                    else:
-                        shutil.copy2(pathFileOrigin + '/' + originalFileName,
-                                     remote_pathToGCF + originalFileName)
+                    self.printColor("No se puede realizar esta acción, debido a que el archivo esta siendo usado por otro proceso", "Inuse")
+            # self.enable = False
+            # print('Termino el Proceso?')
         else:
             self.isWorking = False
-            print("No hay Archivos en este Directorio")
+            self.printColor("No hay Archivos en este Directorio", "Inuse")
 
     def setParametersToConvertGCFtoSAC(self, params):
 
@@ -215,7 +238,8 @@ class Station:
 
         self.id = params['id']
 
-        self.stationName = params['stationName']
+        self.stationNameFrom = params['stationNameFrom']
+        self.stationNameTo = params['stationNameTo']
 
         self.volcano = params['volcano']
 
@@ -235,8 +259,8 @@ class Station:
         if self.enable:
             self.isWorking = True
             getDate = self.generateDatePath()
-            remote_pathFrom = self.pathFrom + self.volcano + '/' + self.stationName + '/' + getDate
-            remote_pathTo = self.pathTo + self.volcano + '/' + self.stationName + '/' + getDate
+            remote_pathFrom = self.pathFrom + self.volcano + '/' + self.stationNameFrom + '/' + getDate
+            remote_pathTo = self.pathTo + self.volcano + '/' + self.stationNameTo + '/' + getDate
             print('imprimiento remote_path')
             print(remote_pathFrom)
 
@@ -280,14 +304,16 @@ class Station:
             print(colors.blue(msg))
 
         elif volcano == "Sabancaya":
-            print(colors.green(msg))
-
-        elif volcano == "Ubinas":
-            print(colors.magenta(msg))
-
-        elif volcano == "Ticsani":
             print(colors.yellow(msg))
 
+        elif volcano == "Ubinas":
+            print(colors.cyan(msg))
+
+        elif volcano == "Ticsani":
+            print(colors.magenta(msg))
+
+        elif volcano == "Inuse":
+            print(colors.red(msg))
         else:
             print(msg)
 
